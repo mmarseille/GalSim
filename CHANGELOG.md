@@ -5,6 +5,13 @@ API Changes
 -----------
 
 - Simplified the return value of galsim.config.ReadConfig. (#580)
+- Changed RealGalaxyCatalog methods `getGal` and `getPSF` to return
+  `GSObject`s instead of `Image`s; added `getGalImage` and `getPSFImage` to
+  enable former behavior (#640)
+- Moved packaged `SED` and `Bandpass` files from `.../share/galsim/` to
+  `.../share/galsim/SEDs` and `.../share/galsim/bandpasses` respectively.
+  (#640)
+- Removed option to pass subclass of GSObject to GSObject initializer. (#640)
 - Changed the dimensions of `SED` from [photons/wavelength-interval] to either
   [photons/wavelength-interval/area/time] or [1] (dimensionless).
   `ChromaticObject`s representing stars or galaxies take SEDs with the former
@@ -15,11 +22,11 @@ API Changes
 - Added restrictions to `ChromaticObject`s and `SED`s consistent with
   dimensional analysis.  E.g., only `ChromaticObject`s with dimensionful SEDs
   can be drawn. (#789)
-- Changed `drawKImage` to return a single ImageC instance rather than two
+- Changed `drawKImage` to return a single ImageCD instance rather than two
   ImageD instances (for real and imag parts).  The old syntax of
   `re, im = obj.drawKImage(...)` will still work, but it will raise a
   deprecation warning. (#799)
-- Changed `InterpolatedKImage` to take an ImageC rather than two ImageD
+- Changed `InterpolatedKImage` to take an ImageCD rather than two ImageD
   instances. The old syntax will work, but it will raise a deprecation
   warning. (#799)
 - Dynamic PhaseScreenPSFs now require an explicit start time and time step.
@@ -30,11 +37,20 @@ API Changes
 - Some of the backend (but nonetheless public API) methods of PhaseScreen and
   PhaseScreenList have changed.  See the docstrings of these classes for
   the new API if you have been using these methods. (#824)
+- Slightly changed the signatures of some back-end, but nonetheless public,
+  config-layer functions.  If you have been using custom config modules,
+  there may be slight changes to your code required.  See the doc strings of
+  these functions for more information. (#865)
+- Switched galsim.Image(image) to make a copy of the image rather than a view.
+  If you want a view, you should use the more intuitive image.view().  (#873)
+- Changed behaviour of the `preload` option in RealGalaxyCatalog and
+  COSMOSCatalog to preload data in memory, not just the fits HDUs (#884)
 
 
 Dependency Changes
 ------------------
 - Added `astropy` as a required dependency for chromatic functionality. (#789)
+- Switched `scons tests` test runner from `nosetests` to `pytest`. (#892)
 
 
 Bug Fixes
@@ -46,6 +62,8 @@ Bug Fixes
   using the config functionality. (#792)
 - Fixed some handling of images with undefined bounds. (#799)
 - Fixed bug in image.subImage that could cause seg faults in some cases. (#848)
+- Fixed minor bug in shear == implementation. (#865)
+- Fixed bug in GSFitsWCS that made `toImage` sometimes fail to converge. (#880)
 
 
 Deprecated Features
@@ -66,14 +84,31 @@ Deprecated Features
   returned image by gain, which will have the same effect and probably
   be clearer in your own code about what you meant. (#799)
 - Deprecated ability to create multiple PhaseScreenPSFs with single call
-  to makePSF, since it's now just as efficient to call makePSF multiple
+  to makePSF, since it is now just as efficient to call makePSF multiple
   times. (#824)
 
 
 New Features
 ------------
 
+- Added new surface brightness profile, 'DeltaFunction'. This represents a
+  point source with a flux value. (#533)
+- Added `ChromaticRealGalaxy`, which can use multi-band HST-images to model
+  realistic galaxies, including color gradients (#640)
+- Added `CovarianceSpectrum` to propagate noise through
+  `ChromaticRealGalaxy` (#640)
+- Updated packaged bandpasses and SEDs and associated download scripts (#640)
+- Added HST bandpasses covering AEGIS and CANDELS surveys (#640)
+- Added `drawKImage` method for `ChromaticObject` and `CorrelatedNoise` (#640)
 - Added support for reading in of unsigned int Images (#715)
+- Added a new Sensor class hierarchy, including SiliconSensor, which models
+  the repulsion of incoming electrons by the electrons already accumulated on
+  the sensor.  This effect is known as the "brighter-fatter effect", since it
+  means that brighter objects are a bit larger than dimmer but otherwise-
+  identical objects. (#722)
+- Added `save_photons` option to `drawImage` to output the photons that were
+  shot when photon shooting (if applicable). (#722)
+- Added image.bin and image.subsample methods. (#722)
 - Added ability to specify optical aberrations in terms of annular Zernike
   coefficients.  (#771)
 - Added ability to use `numpy`, `np`, or `math` in all places where we evaluate
@@ -91,8 +126,9 @@ New Features
 - Allow selection of random galaxies from a RealGalaxyCatalog or COSMOSCatalog
   in a way that accounts for any selection effects in catalog creation, using
   the 'weight' entries in the catalog. (#787)
-- Added possibility of using `dtype=complex` for Images, the shorthand alias
-  for which is called ImageC. (#799)
+- Added possibility of using `dtype=complex` or `numpy.complex128` for Images,
+  the shorthand alias for which is ImageCD. Also `dtype=numpy.complex64` is
+  allowed, the alias for which is ImageCF. (#799, #873)
 - Added `maxSB()` method to GSObjects to return an estimate of the maximum
   surface brightness.  For analytic profiles, it returns the correct value,
   but for compound objects (convolutions in particular), it cannot know the
@@ -107,6 +143,9 @@ New Features
   doing so are `im.calculate_fft()` and `im.calculate_inverse_fft()`.  There
   is also `im.wrap()` which can be used to wrap an image prior to doing the
   FFT to properly alias the data if necessary. (#799)
+- Added new surface brightness profile, 'InclinedSersic'. This is a
+  generalization of the InclinedExponential profile, allowing Sersic disks and
+  a truncation radius for the disk. (#811)
 - Added new profile `galsim.RandomWalk`, a class for generating a set of
   point sources distributed using a random walk.  Uses of this profile include
   representing an "irregular" galaxy, or adding this profile to an Exponential
@@ -130,6 +169,27 @@ New Features
   replacements for np.fft functions, but using the C-layer FFTW package.
   Our functions have more restrictions on the input arrays, but when valid
   are generally somewhat faster than the numpy functions. (#840)
+- Added some variants of normal functions and methods with a leading underscore.
+  These variants skip the normal sanity checks of the input parameters and
+  often have more limited options for the input arguments.  Some examples:
+  `_Image`, `_Shear`, `_BoundsI`, `_Transform`, `obj._shear`, `obj._shift`,
+  `obj._drawKImage`, `image._view`, `image._shift`.  These are appropriate
+  for advanced users who are optimizing a tight loop and find that the normal
+  Python checks are taking a significant amount of time. (#840, #873)
+- Added a hook to the WCS classes to allow them to vary with color, although
+  most of our current WCS classes are not able to use this feature.  The only
+  one that can is UVFunction, which may now optionally have a color term
+  if you set `uses_color=True`.  (Note however that there is not yet a
+  mechanism to assign colors to objects in the config parser.) (#865)
+- Added optional `variance` parameter to PowerSpectrum.buildGrid to
+  renormalize the variance of the returned shear values. (#865)
+- Added ability to get position (x,y,z) on the unit sphere corresponding to
+  a CelestialCoord with `coord.get_xyz()`.  Also make a CelestialCoord from
+  (x,y,z) using `CeletialCoord.from_xyz(x,y,z)`. (#865)
+- Added an optional `center` argument for `Angle.wrap()`. (#865)
+- Added `recenter` option to drawKImage to optionally not recenter the input
+  image at (0,0).  The default `recenter=True` is consistent with how this
+  function has worked in previous versions. (#873)
 
 
 New config features
@@ -151,3 +211,20 @@ New config features
   has an error, rather than just reporting the exception and continuing on
   (which is still the default behavior). (#820)
 - Added optional probability parameter 'p' for Random bool values. (#820)
+- Added ability to specify world_pos in celestial coordinates (#865)
+- Added the ability to have multiple rngs with different update sequences
+  (e.g. to have some random galaxy properties repeat for the corresponding
+  galaxies on multiple images).  (#865)
+- Added ngrid, center, variance, index options to power_spectrum input field.
+  (#865)
+- Skip drawing objects whose postage stamps will end up completely off the
+  main image currently being worked on. (#865)
+- Added skip option in stamp field, which works the same as the skip parameter
+  in gal or psf fields. (#865)
+- Added ':field' syntax for templates, which use the current dict as the base
+  rather than reading from another file (with 'file:field'). (#865)
+- No longer tries to process extra output items for stamps that are skipped.
+  This is normally better, since the extra output processing probably depends
+  on the stamp processing having been completed.  But it is customizable via
+  the `processSkippedStamp` method of ExtraOutputBuilders, so you can override
+  this behavior in your custom modules if you prefer. (#865)

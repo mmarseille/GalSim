@@ -1,4 +1,4 @@
-# Copyright (c) 2012-2016 by the GalSim developers team on GitHub
+# Copyright (c) 2012-2017 by the GalSim developers team on GitHub
 # https://github.com/GalSim-developers
 #
 # This file is part of GalSim: The modular galaxy image simulation toolkit.
@@ -38,7 +38,7 @@ test_scale = [1.8, 0.05, 0.002, 0.002]
 test_spergel_nu = [-0.85, -0.5, 0.0, 0.85, 4.0]
 test_spergel_scale = [20.0, 1.0, 1.0, 0.5, 0.5]
 if __name__ == "__main__":
-    # If doing a nosetests run, we don't actually need to do all 4 sersic n values.
+    # If doing a pytest run, we don't actually need to do all 4 sersic n values.
     # Two should be enough to notice if there is a problem, and the full list will be tested
     # when running python test_base.py to try to diagnose the problem.
     test_sersic_n = [1.5, -4]
@@ -119,6 +119,8 @@ def test_dep_bandpass():
                                    err_msg="Found wrong value in Bandpass.__rdiv__")
     np.testing.assert_array_almost_equal(f.wave_list, [1.1, 2.2, 3.0, 4.4, 5.5],
                                          err_msg="wrong wave_list in Bandpass.__rdiv__")
+
+    check_dep(galsim.Bandpass, os.path.join(galsim.meta_data.share_dir, 'LSST_r.dat'), 'nm')
 
 
 @timer
@@ -1157,7 +1159,7 @@ def test_dep_wmult():
     #   - create a new image that is wmult times larger in each direction.
     #   - return the new image
     #   - set the scale to obj2.nyquistScale()
-    im6 = check_dep(obj.drawImage, wmult=4.)
+    im6 = check_dep(obj.drawImage, wmult=3.)
     np.testing.assert_almost_equal(im6.scale, nyq_scale, 9,
                                    "obj.drawImage(wmult) produced image with wrong scale")
     # Can assert accuracy to 4 decimal places now, since we're capturing much more
@@ -1166,7 +1168,7 @@ def test_dep_wmult():
                                    "obj.drawImage(wmult) produced image with wrong flux")
     np.testing.assert_almost_equal(CalculateScale(im6), 2, 2,
                                    "Measured wrong scale after obj.drawImage(wmult)")
-    assert im6.bounds == galsim.BoundsI(1,220,1,220),(
+    assert im6.bounds == galsim.BoundsI(1,166,1,166),(
             "obj.drawImage(wmult) produced image with wrong bounds")
 
     # Test if we provide an image argument and wmult.  It should:

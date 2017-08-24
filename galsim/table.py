@@ -1,4 +1,4 @@
-# Copyright (c) 2012-2016 by the GalSim developers team on GitHub
+# Copyright (c) 2012-2017 by the GalSim developers team on GitHub
 # https://github.com/GalSim-developers
 #
 # This file is part of GalSim: The modular galaxy image simulation toolkit.
@@ -100,7 +100,12 @@ class LookupTable(object):
                                           # it from pandas.parser
             try:
                 import pandas
-                from pandas.parser import CParserError
+                try:
+                    # version >= 0.20
+                    from pandas.io.common import CParserError
+                except ImportError:
+                    # version < 0.20
+                    from pandas.parser import CParserError
                 data = pandas.read_csv(file, comment='#', delim_whitespace=True, header=None)
                 data = data.values.transpose()
             except (ImportError, AttributeError, CParserError):
@@ -564,7 +569,7 @@ class LookupTable2D(object):
                 self.edge_mode == other.edge_mode)
 
     def __ne__(self, other):
-        return not self.__eq__(self, other)
+        return not self.__eq__(other)
 
     def __hash__(self):
         return hash(("galsim._galsim._LookupTable2D", self.table, self.edge_mode))
@@ -581,7 +586,7 @@ def _LookupTable2D_str(self):
     y = self.getYArgs()
     f = self.getVals()
     return ("galsim._galsim._LookupTable2D(x=[%s,...,%s], y=[%s,...,%s], "
-            "f=[[%s,...,%s],...,[%s,...,%s]]), interpolant=%r"%(
+            "f=[[%s,...,%s],...,[%s,...,%s]], interpolant=%r)"%(
             x[0], x[-1], y[0], y[-1], f[0,0], f[0,-1], f[-1,0], f[-1,-1], self.getInterp()))
 
 _galsim._LookupTable2D.__getinitargs__ = lambda self: \
@@ -592,5 +597,6 @@ _galsim._LookupTable2D.__hash__ = lambda self: \
               tuple(np.array(self.getVals()).ravel()), self.getInterp()))
 _galsim._LookupTable2D.__str__ = _LookupTable2D_str
 _galsim._LookupTable2D.__repr__ = lambda self: \
-        'galsim._galsim._LookupTable2D(array(%r), array(%r), %r, %r)'%(
-        self.getXArgs().tolist(), self.getYArgs().tolist(), self.getVals(), self.getInterp())
+        'galsim._galsim._LookupTable2D(array(%r), array(%r), array(%r), %r)'%(
+        self.getXArgs().tolist(), self.getYArgs().tolist(), self.getVals().tolist(),
+        self.getInterp())

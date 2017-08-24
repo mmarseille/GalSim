@@ -1,4 +1,4 @@
-# Copyright (c) 2012-2016 by the GalSim developers team on GitHub
+# Copyright (c) 2012-2017 by the GalSim developers team on GitHub
 # https://github.com/GalSim-developers
 #
 # This file is part of GalSim: The modular galaxy image simulation toolkit.
@@ -127,6 +127,9 @@ def check_basic_k(prof, name):
     if prof.maxK()/prof.stepK() > 2000.:
         # Don't try to draw huge images!
         kimage = prof.drawKImage(nx=2000,ny=2000)
+    elif prof.maxK()/prof.stepK() < 12.:
+        # or extremely small ones.
+        kimage = prof.drawKImage(nx=12,ny=12)
     else:
         kimage = prof.drawKImage()
     kimage.setCenter(0,0)
@@ -315,7 +318,7 @@ def do_pickle(obj1, func = lambda x : x, irreprable=False):
         import pickle
     import copy
     # In case the repr uses these:
-    from numpy import array, uint16, uint32, int16, int32, float32, float64, ndarray
+    from numpy import array, uint16, uint32, int16, int32, float32, float64, complex64, complex128, ndarray
     from astropy.units import Unit
 
     try:
@@ -325,7 +328,7 @@ def do_pickle(obj1, func = lambda x : x, irreprable=False):
             irreprable = True
     except:
         import pyfits
-    print('Try pickling ',obj1)
+    print('Try pickling ',str(obj1))
 
     #print('pickled obj1 = ',pickle.dumps(obj1))
     obj2 = pickle.loads(pickle.dumps(obj1))
@@ -337,6 +340,10 @@ def do_pickle(obj1, func = lambda x : x, irreprable=False):
     #print('func(obj1) = ',repr(f1))
     #print('func(obj2) = ',repr(f2))
     assert f1 == f2
+
+    # Check that == works properly if the other thing isn't the same type.
+    assert f1 != object()
+    assert object() != f1
 
     # Test the hash values are equal for two equivalent objects.
     from collections import Hashable
@@ -374,7 +381,7 @@ def do_pickle(obj1, func = lambda x : x, irreprable=False):
         # precision for the eval string to exactly reproduce the original object, and start
         # truncating the output for relatively small size arrays.  So we temporarily bump up the
         # precision and truncation threshold for testing.
-        with galsim.utilities.printoptions(precision=18, threshold=1e6):
+        with galsim.utilities.printoptions(precision=18, threshold=np.inf):
             obj5 = eval(repr(obj1))
         f5 = func(obj5)
         assert f5 == f1, "func(obj1) = %r\nfunc(obj5) = %r"%(f1, f5)
@@ -426,14 +433,16 @@ def do_pickle(obj1, func = lambda x : x, irreprable=False):
             # Special case: can't change size of LVector or PhotonArray without changing array
             if classname in ['LVector', 'PhotonArray'] and i == 0:
                 continue
-            with galsim.utilities.printoptions(precision=18, threshold=1e6):
+            with galsim.utilities.printoptions(precision=18, threshold=np.inf):
                 try:
                     if classname in galsim._galsim.__dict__:
-                        obj6 = eval('galsim._galsim.' + classname + repr(tuple(newargs)))
+                        eval_str = 'galsim._galsim.' + classname + repr(tuple(newargs))
                     else:
-                        obj6 = eval('galsim.' + classname + repr(tuple(newargs)))
+                        eval_str = 'galsim.' + classname + repr(tuple(newargs))
+                    obj6 = eval(eval_str)
                 except Exception as e:
-                    print('e = ',e)
+                    print('caught exception: ',e)
+                    print('eval_str = ',eval_str)
                     raise TypeError("{0} not `eval`able!".format(
                             classname + repr(tuple(newargs))))
                 else:
@@ -486,7 +495,7 @@ def check_chromatic_invariant(obj, bps=None, waves=None):
     """
     if bps is None:
         # load a filter
-        bppath = os.path.abspath(os.path.join(path, "../examples/data/"))
+        bppath = os.path.join(galsim.meta_data.share_dir, 'bandpasses')
         bandpass = (galsim.Bandpass(os.path.join(bppath, 'LSST_r.dat'), 'nm')
                     .truncate(relative_throughput=1e-3)
                     .thin(rel_err=1e-3))
