@@ -26,6 +26,7 @@
 
 #include "SBSecondKick.h"
 #include "SBSecondKickImpl.h"
+#include "SBAiry.h"
 
 namespace galsim {
     SBSecondKick::SBSecondKick(double lam, double r0, double L0, double D, double obs, double kcrit,
@@ -102,7 +103,8 @@ namespace galsim {
         _kcrit(kcrit),
         _flux(flux),
         _structure_fn(Table<double,double>::spline),
-        _PSF(Table<double,double>::spline)
+        _PSF(Table<double,double>::spline),
+        _sbairy(new SBAiry(_lam/_D*206265, obs, flux, gsparams))
     {
         dbg<<"SBSecondKickImpl constructor: gsparams = "<<gsparams.get()<<std::endl;
         dbg<<"this->gsparams = "<<this->gsparams.get()<<std::endl;
@@ -145,13 +147,14 @@ namespace galsim {
             return 0.033/0.423*_r0fac*std::pow(kappa*kappa + _L0sqrinv, -11./6);
         }
         double _r0fac;  // r0^(-5./3)
-        double _L0sqrinv;
+        double _L0sqrinv;  // L0^(-2)
         double _rho;
     };
 
     void SBSecondKick::SBSecondKickImpl::_buildStructureFunctionLUT() {
         double dlogrho = gsparams->table_spacing * sqrt(sqrt(gsparams->kvalue_accuracy / 10.));
         dbg<<"Using dlogrho = "<<dlogrho<<std::endl;
+        // Need to determine a smarter way to set rhomin and rhomax...
         double rhomin = 1e-6;
         double rhomax = 10.0;
         for (double logrho = std::log(rhomin)-0.001; logrho < std::log(rhomax); logrho += dlogrho){
@@ -175,8 +178,7 @@ namespace galsim {
     }
 
     double SBSecondKick::SBSecondKickImpl::tau0(double rho) const {
-        double roD = rho/_D;
-        return 2/M_PI*(std::acos(roD) - roD*std::sqrt(1.0 - roD*roD));
+        return _sbairy->kValue(Position<double>(0, 2*M_PI*rho/_lam/206265)).real();
     }
 
     class PSFIntegrand : public std::unary_function<double,double>

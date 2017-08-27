@@ -22,6 +22,7 @@
 
 #include "SBProfileImpl.h"
 #include "SBSecondKick.h"
+#include "SBAiry.h"
 #include "LRUCache.h"
 #include "OneDimensionalDeviate.h"
 #include "Table.h"
@@ -97,6 +98,8 @@ namespace galsim {
         mutable boost::shared_ptr<OneDimensionalDeviate> _sampler;
         mutable Table<double,double> _structure_fn;
         mutable Table<double,double> _PSF;
+
+        boost::shared_ptr<SBAiry> _sbairy;
 
         void _buildStructureFunctionLUT();
     };

@@ -34,7 +34,7 @@ lam = 500.0
 r0 = 0.2
 L0 = 30.0
 D = 8.36
-obs = 0.61
+obs = 0.0
 kcrit = 2*np.pi/r0
 flux = 1.0
 
@@ -61,6 +61,7 @@ class Dphi(object):
 
         return 8*np.pi**2 * galsim.integ.int1d(self._integrand(rho), self.kcrit, MOCK_INFINITY)
 
+# This tau (essentially the telescope OTF) only appropriate for zero obscuration
 class Tau0(object):
     def __init__(self, D):
         self.D = D
@@ -95,7 +96,7 @@ def test_PSF():
     prof1 = galsim._galsim.SBSecondKick(lam, r0, 10.0, D, obs, 2*np.pi/r0, flux, None)
     prof2 = galsim._galsim.SBSecondKick(lam, r0, 10.0, D, obs, 2*np.pi/(1.5*r0), flux, None)
     prof3 = galsim._galsim.SBSecondKick(lam, r0, 10.0, D, obs, 0.0, flux, None)
-    prof4 = galsim.Airy(lam=lam, diam=D)
+    prof4 = galsim.Airy(lam=lam, diam=D, obscuration=obs)
 
     alpha = [0.0, 0.01, 0.02, 0.03]
     psf1 = np.array([prof1.PSF(a/206265) for a in alpha])
