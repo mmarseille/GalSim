@@ -23,16 +23,22 @@ geometric shooting through an atmospheric PhaseScreenPSF.
 
 import numpy as np
 
+import galsim
+
 from . import _galsim
 from .gsobject import GSObject
 
 
 class VonKarman(GSObject):
-    def __init__(self, lam, r0, L0=np.inf, kcrit=0, flux=1, force_kmax=None, gsparams=None):
+    def __init__(self, lam, r0, L0=np.inf, kcrit=0, flux=1, force_kmax=None,
+                 scale_unit=galsim.arcsec, gsparams=None):
         if force_kmax is None:
             force_kmax = 0.0
+        # We lose stability if L0 gets too large.  This should be close enough to infinity for
+        # all practical purposes though.
         if L0 > 1e10:
             L0 = 1e10
+        scale = scale_unit/galsim.radians
         GSObject.__init__(
             self,
             _galsim.SBVonKarman(
@@ -42,6 +48,7 @@ class VonKarman(GSObject):
                 kcrit,
                 flux,
                 force_kmax,
+                scale,
                 gsparams
             )
         )
@@ -61,6 +68,10 @@ class VonKarman(GSObject):
     @property
     def kcrit(self):
         return self.SBProfile.getKCrit()
+
+    @property
+    def scale_unit(self):
+        return galsim.AngleUnit(self.SBProfile.getScale())
 
     def structureFunction(self, rho):
         return self.SBProfile.structureFunction(rho)

@@ -30,11 +30,11 @@ except ImportError:
     import galsim
 
 
-def test_vk_eq_kolm():
+def test_vk():
     lam = 500.0
     r0 = 0.2
     L0 = 1e3
-    vk = galsim.VonKarman(lam, r0, L0)
+    vk = galsim.VonKarman(lam, r0, L0, scale_unit=galsim.arcsec)
     print(vk.lam)
     print(vk.r0)
     print(vk.L0)
@@ -42,11 +42,13 @@ def test_vk_eq_kolm():
     print(vk.stepK())
     print(vk.maxK())
     print(vk.gsparams)
-    print(vk.structureFunction(0.0))
-    print(vk.structureFunction(1e6))
-    print(vk.kValue(0,1e12))
-
-    vk.drawImage()
+    print(vk.scale_unit)
+    print(vk.kValue(0,0))
+    print(vk.kValue(0,1))
+    print(vk.kValue(0,3))
+    print(vk.kValue(0,10))
+    print(vk.kValue(0,30))
+    # vk.drawImage()
 
 if __name__ == "__main__":
-    test_vk_eq_kolm()
+    test_vk()

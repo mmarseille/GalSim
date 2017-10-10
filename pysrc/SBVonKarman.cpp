@@ -34,10 +34,10 @@ namespace galsim {
         static void wrap()
         {
             bp::class_<SBVonKarman,bp::bases<SBProfile> >("SBVonKarman", bp::no_init)
-                .def(bp::init<double,double,double,double,double,double,
+                .def(bp::init<double,double,double,double,double,double,double,
                               boost::shared_ptr<GSParams> >(
                         (bp::arg("lam"), bp::arg("r0"), bp::arg("L0"), bp::arg("kcrit"),
-                         bp::arg("flux")=1., bp::arg("maxk")=0.,
+                         bp::arg("flux")=1., bp::arg("maxk")=0., bp::arg("scale")=1.0,
                          bp::arg("gsparams")=bp::object()))
                 )
                 .def(bp::init<const SBVonKarman &>())
@@ -45,6 +45,7 @@ namespace galsim {
                 .def("getR0", &SBVonKarman::getR0)
                 .def("getL0", &SBVonKarman::getL0)
                 .def("getKCrit", &SBVonKarman::getKCrit)
+                .def("getScale", &SBVonKarman::getScale)
                 .def("structureFunction", &SBVonKarman::structureFunction)
                 .enable_pickling()
                 ;

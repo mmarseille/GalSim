@@ -47,10 +47,11 @@ namespace galsim {
          * @param[in] kcrit        Critical Fourier mode scale in radians per meter.
          * @param[in] flux         Flux.
          * @param[in] maxk         If > 0, then force maxk to this value.
+         * @param[in] scale        Scale of 'x' in xValue in radians.
          * @param[in] gsparams     GSParams.
          */
         SBVonKarman(double lam, double r0, double L0, double kcrit, double flux, double maxk,
-            const GSParamsPtr& gsparams);
+                    double scale, const GSParamsPtr& gsparams);
 
         /// @brief Copy constructor
         SBVonKarman(const SBVonKarman& rhs);
@@ -63,6 +64,7 @@ namespace galsim {
         double getR0() const;
         double getL0() const;
         double getKCrit() const;
+        double getScale() const;
 
         double structureFunction(double) const;
 

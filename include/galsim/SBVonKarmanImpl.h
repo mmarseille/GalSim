@@ -28,6 +28,14 @@
 
 namespace galsim {
 
+    //
+    //
+    //
+    //VonKarmanInfo
+    //
+    //
+    //
+
     class VonKarmanInfo
     {
     public:
@@ -37,7 +45,7 @@ namespace galsim {
 
         // Needs to be evaluated at nu = rho / L0, and then multiplied by (r0/L0)^(5/3)
         double structureFunction(double nu) const;
-
+        void buildSFTab();
         // boost::shared_ptr<PhotonArray> shoot(int N, UniformDeviate ud) const;
 
     private:
@@ -50,17 +58,25 @@ namespace galsim {
         TableDD _sfTab;
     };
 
+    //
+    //
+    //
+    //SBVonKarmanImpl
+    //
+    //
+    //
+
     class SBVonKarman::SBVonKarmanImpl : public SBProfileImpl
     {
     public:
         SBVonKarmanImpl(double lam, double r0, double L0, double kcrit, double flux, double maxk,
-            const GSParamsPtr& gsparams);
+                        double scale, const GSParamsPtr& gsparams);
         ~SBVonKarmanImpl() {}
 
         bool isAxisymmetric() const { return true; }
         bool hasHardEdges() const { return false; }
         bool isAnalyticX() const { return false; }
-        bool isAnalyticK() const { return false; }
+        bool isAnalyticK() const { return true; }
 
         double maxK() const;
         double stepK() const;
@@ -72,6 +88,7 @@ namespace galsim {
         double getR0() const { return _r0; }
         double getL0() const { return _L0; }
         double getKCrit() const { return _kcrit; }
+        double getScale() const { return _scale; }
         // double maxSB();// const { return _xnorm * _info->xValue(0.); }
         double maxSB() const { return 1.0; }  // no idea how right/wrong this is.
 
@@ -101,6 +118,7 @@ namespace galsim {
         double _kcrit;
         double _flux;
         double _maxk;
+        double _scale;
         double _beta_min;
 
         boost::shared_ptr<VonKarmanInfo> _info; ///< Points to info structure for this

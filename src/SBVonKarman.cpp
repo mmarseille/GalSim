@@ -33,11 +33,17 @@ namespace galsim {
     inline double fast_pow(double x, double y)
     { return fmath::expd(y * std::log(x)); }
 
+    //
+    //
+    //
     //SBVonKarman
+    //
+    //
+    //
 
     SBVonKarman::SBVonKarman(double lam, double r0, double L0, double kcrit, double flux,
-                             double maxk, const GSParamsPtr& gsparams) :
-        SBProfile(new SBVonKarmanImpl(lam, r0, L0, kcrit, flux, maxk, gsparams)) {}
+                             double maxk, double scale, const GSParamsPtr& gsparams) :
+        SBProfile(new SBVonKarmanImpl(lam, r0, L0, kcrit, flux, maxk, scale, gsparams)) {}
 
     SBVonKarman::SBVonKarman(const SBVonKarman &rhs) : SBProfile(rhs) {}
 
@@ -67,18 +73,30 @@ namespace galsim {
         return static_cast<const SBVonKarmanImpl&>(*_pimpl).getKCrit();
     }
 
+    double SBVonKarman::getScale() const
+    {
+        assert(dynamic_cast<const SBVonKarmanImpl*>(_pimpl.get()));
+        return static_cast<const SBVonKarmanImpl&>(*_pimpl).getScale();
+    }
+
     double SBVonKarman::structureFunction(double rho) const
     {
         assert(dynamic_cast<const SBVonKarmanImpl*>(_pimpl.get()));
         return static_cast<const SBVonKarmanImpl&>(*_pimpl).structureFunction(rho);
     }
 
+    //
+    //
+    //
     //VonKarmanInfo
+    //
+    //
+    //
 
     VonKarmanInfo::VonKarmanInfo(const GSParamsPtr& gsparams, const double beta_min) :
         _beta_min(beta_min), _gsparams(gsparams), _sfTab(TableDD::spline)
     {
-        
+
     }
 
     class VonKarmanInfoIntegrand : public std::unary_function<double,double>
@@ -101,10 +119,16 @@ namespace galsim {
     LRUCache<boost::tuple<GSParamsPtr,double>,VonKarmanInfo>
         SBVonKarman::SBVonKarmanImpl::cache(sbp::max_vonKarman_cache);
 
+    //
+    //
+    //
     //SBVonKarmanImpl
+    //
+    //
+    //
 
     SBVonKarman::SBVonKarmanImpl::SBVonKarmanImpl(double lam, double r0, double L0, double kcrit,
-                                                  double flux, double maxk,
+                                                  double flux, double maxk, double scale,
                                                   const GSParamsPtr& gsparams) :
         SBProfileImpl(gsparams),
         _lam(lam),
@@ -113,6 +137,7 @@ namespace galsim {
         _kcrit(kcrit),
         _flux(flux),
         _maxk(maxk),
+        _scale(scale),
         _info(cache.get(boost::make_tuple(this->gsparams.duplicate(), L0*kcrit)))
     {
         dbg<<"SBVonKarmanImpl constructor: gsparams = "<<gsparams.get()<<std::endl;
@@ -174,7 +199,7 @@ namespace galsim {
 
     std::complex<double> SBVonKarman::SBVonKarmanImpl::kValue(const Position<double>& p) const
     {
-        double k = sqrt(p.x*p.x+p.y*p.y);
+        double k = sqrt(p.x*p.x+p.y*p.y)/_scale;
         return _flux*fmath::expd(-0.5*structureFunction(k*_lam/(2.*M_PI)));
     }
 }
