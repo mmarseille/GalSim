@@ -26,6 +26,7 @@ SBSpergel.cpp
 SBInclinedExponential.cpp
 SBSecondKick.cpp
 SBInclinedSersic.cpp
+SBVonKarman.cpp
 Table.cpp
 RealSpaceConvolve.cpp
 Random.cpp
