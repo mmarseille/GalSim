@@ -30,10 +30,8 @@ from .gsobject import GSObject
 
 
 class VonKarman(GSObject):
-    def __init__(self, lam, r0, L0=np.inf, kcrit=0, flux=1, force_kmax=None,
-                 scale_unit=galsim.arcsec, gsparams=None):
-        if force_kmax is None:
-            force_kmax = 0.0
+    def __init__(self, lam, r0, L0=np.inf, kcrit=0, flux=1, scale_unit=galsim.arcsec,
+                 gsparams=None):
         # We lose stability if L0 gets too large.  This should be close enough to infinity for
         # all practical purposes though.
         if L0 > 1e10:
@@ -47,7 +45,6 @@ class VonKarman(GSObject):
                 L0,
                 kcrit,
                 flux,
-                force_kmax,
                 scale,
                 gsparams
             )

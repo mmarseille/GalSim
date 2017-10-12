@@ -36,24 +36,31 @@ namespace galsim {
     //
     //
 
+    // I'm not totally sure if it's worth having this class.  It *may* be that we get some
+    // reuse out of it as we change wavelengths, but keep L0, gsparams, and kcrit the
+    // same.  But I'm not sure if we'd want to keep kcrit the same across wavelengths, or
+    // if it should scale like r0^-1, i.e., lambda^(-6/5).  Keeping it here for now
+    // though.
     class VonKarmanInfo
     {
     public:
-        VonKarmanInfo(const GSParamsPtr& gsparams, const double beta_min=0.0);  // Might need a maxk here too...
+        VonKarmanInfo(double L0, const GSParamsPtr& gsparams, double kcrit=0.0);
 
         ~VonKarmanInfo() {}
 
-        // Needs to be evaluated at nu = rho / L0, and then multiplied by (r0/L0)^(5/3)
-        double structureFunction(double nu) const;
+        double structureFunction(double rho) const;
+        double structureFunctionTab(double rho) const;
         void buildSFTab();
+        double maxRho(double r0m53) const;
         // boost::shared_ptr<PhotonArray> shoot(int N, UniformDeviate ud) const;
 
     private:
         VonKarmanInfo(const VonKarmanInfo& rhs); ///<Hide the copy constructor
         void operator=(const VonKarmanInfo& rhs); ///<Hide the assignment operator
 
-        const double _beta_min; ///<Lower turbulence mode cutoff
+        const double _L0invsq;
         const GSParamsPtr _gsparams;
+        const double _kcrit; ///<Lower turbulence mode cutoff
 
         TableDD _sfTab;
     };
@@ -69,8 +76,8 @@ namespace galsim {
     class SBVonKarman::SBVonKarmanImpl : public SBProfileImpl
     {
     public:
-        SBVonKarmanImpl(double lam, double r0, double L0, double kcrit, double flux, double maxk,
-                        double scale, const GSParamsPtr& gsparams);
+        SBVonKarmanImpl(double lam, double r0, double L0, double kcrit, double flux, double scale,
+                        const GSParamsPtr& gsparams);
         ~SBVonKarmanImpl() {}
 
         bool isAxisymmetric() const { return true; }
@@ -114,12 +121,12 @@ namespace galsim {
 
         double _lam;
         double _r0;
+        double _r0m53;
         double _L0;
         double _kcrit;
         double _flux;
-        double _maxk;
         double _scale;
-        double _beta_min;
+        double _kappa_min;
 
         boost::shared_ptr<VonKarmanInfo> _info; ///< Points to info structure for this
                                                 ///  beta_min = L0*kcrit
@@ -133,7 +140,7 @@ namespace galsim {
         // mutable Table<double,double> _structure_fn;
         // mutable Table<double,double> _PSF;
 
-        static LRUCache<boost::tuple<GSParamsPtr,double>,VonKarmanInfo> cache;
+        static LRUCache<boost::tuple<double,GSParamsPtr,double>,VonKarmanInfo> cache;
     };
 }
 

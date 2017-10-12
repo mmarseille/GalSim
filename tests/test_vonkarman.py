@@ -33,22 +33,13 @@ except ImportError:
 def test_vk():
     lam = 500.0
     r0 = 0.2
-    L0 = 1e3
-    vk = galsim.VonKarman(lam, r0, L0, scale_unit=galsim.arcsec)
-    print(vk.lam)
-    print(vk.r0)
-    print(vk.L0)
-    print(vk.kcrit)
-    print(vk.stepK())
-    print(vk.maxK())
-    print(vk.gsparams)
-    print(vk.scale_unit)
-    print(vk.kValue(0,0))
-    print(vk.kValue(0,1))
-    print(vk.kValue(0,3))
-    print(vk.kValue(0,10))
-    print(vk.kValue(0,30))
-    # vk.drawImage()
+    L0 = 1e100
+    kcrit = 0.0
+    vk = galsim.VonKarman(lam, r0, L0, kcrit, scale_unit=galsim.arcsec)
+    kolm = galsim.Kolmogorov(lam=lam, r0=r0)
+
+    for k in [0.0, 1.0, 3.0, 10.0, 30.0]:
+        np.testing.assert_allclose(kolm.kValue(0,k).real, vk.kValue(0,k).real, rtol=0, atol=3e-4)
 
 if __name__ == "__main__":
     test_vk()
