@@ -67,6 +67,8 @@ namespace galsim {
 
         double structureFunction(double) const;
 
+        friend class VKXIntegrand;
+
     protected:
 
         class SBVonKarmanImpl;

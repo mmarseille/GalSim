@@ -109,9 +109,10 @@ namespace galsim {
          */
         boost::shared_ptr<PhotonArray> shoot(int N, UniformDeviate ud) const;
 
-        double xValue(const Position<double>& p) const
-        { throw SBError("SBVonKarman::xValue() is not implemented"); }
+        double xValue(const Position<double>& p) const;
+        double xValue(double r) const;
         std::complex<double> kValue(const Position<double>& p) const;
+        std::complex<double> kValue(double k) const;
 
         double structureFunction(double rho) const;
 

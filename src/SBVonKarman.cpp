@@ -242,10 +242,41 @@ namespace galsim {
         return _r0m53*_info->structureFunction(rho);
     }
 
-    std::complex<double> SBVonKarman::SBVonKarmanImpl::kValue(const Position<double>& p) const
+    std::complex<double> SBVonKarman::SBVonKarmanImpl::kValue(double k) const
+    // this kValue assumes k is in inverse radians
     {
-        double k = sqrt(p.x*p.x+p.y*p.y)/_scale;
-        dbg<<"k = "<<k<<'\n';
         return fmath::expd(-0.5*_r0m53*_info->structureFunctionTab(k*_lam/(2.*M_PI)));
+    }
+
+    std::complex<double> SBVonKarman::SBVonKarmanImpl::kValue(const Position<double>& p) const
+    // k in units of _scale.
+    {
+        return kValue(sqrt(p.x*p.x+p.y*p.y)/_scale);
+    }
+
+    class VKXIntegrand : public std::unary_function<double,double>
+    {
+    public:
+        VKXIntegrand(double r, const SBVonKarman::SBVonKarmanImpl& sbvki) :
+            _r(r), _sbvki(sbvki)
+        {}
+
+        double operator()(double k) const { return real(_sbvki.kValue(k))*k*j0(k*_r); }
+    private:
+        double _r;
+        const SBVonKarman::SBVonKarmanImpl& _sbvki;
+    };
+
+    double SBVonKarman::SBVonKarmanImpl::xValue(double r) const {
+        VKXIntegrand I(r, *this);
+        double maxk_integ = maxK()/_scale;
+        return integ::int1d(I, 0, maxk_integ,
+                            gsparams->integration_relerr, gsparams->integration_abserr);
+    }
+
+    double SBVonKarman::SBVonKarmanImpl::xValue(const Position<double>& p) const
+    // r in units of _scale
+    {
+        return xValue(sqrt(p.x*p.x+p.y*p.y)*_scale);
     }
 }
