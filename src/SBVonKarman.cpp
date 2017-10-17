@@ -22,11 +22,13 @@
 #include "galsim/IgnoreWarnings.h"
 
 #define BOOST_NO_CXX11_SMART_PTR
+#include <boost/math/special_functions/gamma.hpp>
 #include <boost/math/special_functions/bessel.hpp>
 
 #include "SBVonKarman.h"
 #include "SBVonKarmanImpl.h"
 #include "fmath/fmath.hpp"
+#include "Solve.h"
 
 namespace galsim {
 
@@ -41,9 +43,9 @@ namespace galsim {
     //
     //
 
-    SBVonKarman::SBVonKarman(double lam, double r0, double L0, double kcrit, double flux,
+    SBVonKarman::SBVonKarman(double lam, double r0, double L0, double flux,
                              double scale, const GSParamsPtr& gsparams) :
-        SBProfile(new SBVonKarmanImpl(lam, r0, L0, kcrit, flux, scale, gsparams)) {}
+        SBProfile(new SBVonKarmanImpl(lam, r0, L0, flux, scale, gsparams)) {}
 
     SBVonKarman::SBVonKarman(const SBVonKarman &rhs) : SBProfile(rhs) {}
 
@@ -67,12 +69,6 @@ namespace galsim {
         return static_cast<const SBVonKarmanImpl&>(*_pimpl).getL0();
     }
 
-    double SBVonKarman::getKCrit() const
-    {
-        assert(dynamic_cast<const SBVonKarmanImpl*>(_pimpl.get()));
-        return static_cast<const SBVonKarmanImpl&>(*_pimpl).getKCrit();
-    }
-
     double SBVonKarman::getScale() const
     {
         assert(dynamic_cast<const SBVonKarmanImpl*>(_pimpl.get()));
@@ -93,75 +89,59 @@ namespace galsim {
     //
     //
 
-    VonKarmanInfo::VonKarmanInfo(double L0, const GSParamsPtr& gsparams, double kcrit) :
-        _L0invsq(1./L0/L0), _gsparams(gsparams), _kcrit(kcrit), _sfTab(TableDD::spline)
-    {
-        buildSFTab();
-    }
-
-    class VonKarmanInfoIntegrand : public std::unary_function<double,double>
-    {
+    class VKIkValueResid {
     public:
-        VonKarmanInfoIntegrand(double L0invsq, double rho) :
-            _L0invsq(L0invsq), _rho(rho) {}
-        double operator()(double kappa) const
-        { return fast_pow(kappa*kappa+_L0invsq, -11./6)*(1.-j0(_rho*kappa))*kappa; }
+        VKIkValueResid(const VonKarmanInfo& vki, double mkt) : _vki(vki), _mkt(mkt) {}
+        double operator()(double k) const {
+            double val = _vki.kValue(k)-_mkt;
+            xdbg<<"resid(k="<<k<<")="<<val<<'\n';
+            return val;
+         }
     private:
-        double _rho;
-        double _L0invsq;
+        double _mkt;
+        const VonKarmanInfo& _vki;
     };
 
+    VonKarmanInfo::VonKarmanInfo(double lam, double r0, double L0, const GSParamsPtr& gsparams) :
+        _lam(lam), _r0(r0), _L0(L0), _r0L0m53(pow(r0/L0, -5./3)), _gsparams(gsparams)
+    {
+        // determine maxK
+        // want kValue(maxK)/kValue(0.0) = _gsparams->maxk_threshold;
+        // note that kValue(0.0) = 1.
+        VKIkValueResid vkikvr(*this, _gsparams->maxk_threshold);
+        Solve<VKIkValueResid> solver(vkikvr, 1e5, 1e6);
+        solver.bracket();
+        solver.setMethod(Brent);
+        _maxk = solver.root();
+
+        _stepk = 1.;
+    }
+
+    double VonKarmanInfo::magic1 = 2*boost::math::tgamma(11./6)/(pow(2, 5./6)*pow(M_PI, 8./3))
+                                    *pow(24/5.*boost::math::tgamma(6./5), 5./6);
+    double VonKarmanInfo::magic2 = boost::math::tgamma(5./6)/pow(2., 1./6);
+    double VonKarmanInfo::magic3 = VonKarmanInfo::magic1*boost::math::tgamma(-5./6)/pow(2., 11./6);
+
     double VonKarmanInfo::structureFunction(double rho) const {
-        VonKarmanInfoIntegrand I(_L0invsq, rho);
-        const double magic = 0.033/0.423*8*M_PI*M_PI;
-        return magic*integ::int1d(I, _kcrit, integ::MOCK_INF,
-                                  _gsparams->integration_relerr,
-                                  1e-4*_gsparams->integration_abserr);
-    }
-
-    void VonKarmanInfo::buildSFTab() {
-        // 1 mm corresponds to a realspace folding scale of 30 arcsec at a wavelength of
-        // 300nm.  I don't expect we'd ever need anything more demanding than that.  Plus,
-        // the turbulence inner scale starts to matter around here, and we're not modeling
-        // that.  So a mm seems sufficient.
-        double log_rho_min = log(1e-3);
-        // LSST is probably the largest aperture in play for GalSim, so using 10 m should
-        // be sufficient.
-        double log_rho_max = log(10.0);
-        double dlogrho = _gsparams->table_spacing * sqrt(sqrt(_gsparams->kvalue_accuracy / 10.0));
-
-        for (double logrho = log_rho_min; logrho < log_rho_max; logrho += dlogrho)
-            _sfTab.addEntry(logrho, structureFunction(exp(logrho)));
-    }
-
-    double VonKarmanInfo::structureFunctionTab(double rho) const {
-        return _sfTab(log(rho));
-    }
-
-    double VonKarmanInfo::maxRho(double r0m53) const {
-        // param[in] r0m53 = r0^(-5/3)
-        //
-        // Want to find kmax s.t. MTF(k>kmax) < maxk_threshold
-        // MTF = exp(-0.5*r0^(-5/3)*structureFunction(rho))
-        // so really want to find rhomax s.t. rho > rhomax implies
-        // structureFunction(rho) > -2*r0^(5/3)*log(maxk_threshold)
-        double thresh = -2.0/r0m53*log(_gsparams->maxk_threshold);
-        double rhomax = _sfTab.argMax();
-        const std::vector<double> args = _sfTab.getArgs();
-        const std::vector<double> vals = _sfTab.getVals();
-        typedef std::vector<double>::const_iterator CIter;
-        CIter a, v;
-        for (a=args.begin(), v=vals.begin();
-             (a+1) != args.end();
-             a++, v++)
-        {
-            if (*v < thresh)
-                rhomax = exp(*(a+1));
+        double rhoL0 = rho/_L0;
+        if (rhoL0 < 1e-6) {
+            return -magic3*fast_pow(2*M_PI*rho/_r0, 5./3);
+        } else {
+            double x = 2*M_PI*rhoL0;
+            dbg<<"x="<<x<<'\n';
+            return magic1*_r0L0m53*(magic2-fast_pow(x, 5./6)*boost::math::cyl_bessel_k(5./6, x));
         }
-        return rhomax;
     }
 
-    LRUCache<boost::tuple<double,GSParamsPtr,double>,VonKarmanInfo>
+    double VonKarmanInfo::kValue(double k) const {
+        return fmath::expd(-0.5*structureFunction(_lam*k/(2*M_PI)));
+    }
+
+    double VonKarmanInfo::stepK() const { return _stepk; }
+
+    double VonKarmanInfo::maxK() const { return _maxk; }
+
+    LRUCache<boost::tuple<double,double,double,GSParamsPtr>,VonKarmanInfo>
         SBVonKarman::SBVonKarmanImpl::cache(sbp::max_vonKarman_cache);
 
     //
@@ -172,28 +152,25 @@ namespace galsim {
     //
     //
 
-    SBVonKarman::SBVonKarmanImpl::SBVonKarmanImpl(double lam, double r0, double L0, double kcrit,
-                                                  double flux, double scale,
-                                                  const GSParamsPtr& gsparams) :
+    SBVonKarman::SBVonKarmanImpl::SBVonKarmanImpl(double lam, double r0, double L0, double flux,
+                                                  double scale, const GSParamsPtr& gsparams) :
         SBProfileImpl(gsparams),
         _lam(lam),
         _r0(r0),
-        _r0m53(fast_pow(r0, -5./3)),
         _L0(L0),
-        _kcrit(kcrit),
         _flux(flux),
         _scale(scale),
-        _info(cache.get(boost::make_tuple(L0, this->gsparams.duplicate(), kcrit)))
+        _info(cache.get(boost::make_tuple(lam, r0, L0, this->gsparams.duplicate())))
     {
         dbg<<"SBVonKarmanImpl constructor: gsparams = "<<gsparams.get()<<std::endl;
         dbg<<"this->gsparams = "<<this->gsparams.get()<<std::endl;
     }
 
     double SBVonKarman::SBVonKarmanImpl::maxK() const
-    { return _info->maxRho(_r0m53)/_lam*(2*M_PI)*_scale; }
+    { return _info->maxK()*_scale; }
 
     double SBVonKarman::SBVonKarmanImpl::stepK() const
-    { return 0.1; }
+    { return _info->stepK()*_scale; }
 
     std::string SBVonKarman::SBVonKarmanImpl::serialize() const
     {
@@ -203,7 +180,6 @@ namespace galsim {
             <<getLam()<<", "
             <<getR0()<<", "
             <<getL0()<<", "
-            <<getKCrit()<<", "
             <<getFlux()<<", galsim.GSParams("<<*gsparams<<"))";
         return oss.str();
     }
@@ -239,13 +215,13 @@ namespace galsim {
     double SBVonKarman::SBVonKarmanImpl::structureFunction(double rho) const
     {
         dbg<<"rho = "<<rho<<'\n';
-        return _r0m53*_info->structureFunction(rho);
+        return _info->structureFunction(rho);
     }
 
-    std::complex<double> SBVonKarman::SBVonKarmanImpl::kValue(double k) const
+    double SBVonKarman::SBVonKarmanImpl::kValue(double k) const
     // this kValue assumes k is in inverse radians
     {
-        return fmath::expd(-0.5*_r0m53*_info->structureFunctionTab(k*_lam/(2.*M_PI)));
+        return _info->kValue(k);
     }
 
     std::complex<double> SBVonKarman::SBVonKarmanImpl::kValue(const Position<double>& p) const
@@ -261,7 +237,7 @@ namespace galsim {
             _r(r), _sbvki(sbvki)
         {}
 
-        double operator()(double k) const { return real(_sbvki.kValue(k))*k*j0(k*_r); }
+        double operator()(double k) const { return std::real(_sbvki.kValue(k))*k*j0(k*_r); }
     private:
         double _r;
         const SBVonKarman::SBVonKarmanImpl& _sbvki;
@@ -269,8 +245,7 @@ namespace galsim {
 
     double SBVonKarman::SBVonKarmanImpl::xValue(double r) const {
         VKXIntegrand I(r, *this);
-        double maxk_integ = maxK()/_scale;
-        return integ::int1d(I, 0, maxk_integ,
+        return integ::int1d(I, 0.0, integ::MOCK_INF,
                             gsparams->integration_relerr, gsparams->integration_abserr);
     }
 

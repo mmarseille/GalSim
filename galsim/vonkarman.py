@@ -30,7 +30,7 @@ from .gsobject import GSObject
 
 
 class VonKarman(GSObject):
-    def __init__(self, lam, r0, L0=np.inf, kcrit=0, flux=1, scale_unit=galsim.arcsec,
+    def __init__(self, lam, r0, L0=np.inf, flux=1, scale_unit=galsim.arcsec,
                  gsparams=None):
         # We lose stability if L0 gets too large.  This should be close enough to infinity for
         # all practical purposes though.
@@ -43,7 +43,6 @@ class VonKarman(GSObject):
                 lam*1e-9,  # nm -> m
                 r0,
                 L0,
-                kcrit,
                 flux,
                 scale,
                 gsparams
@@ -61,10 +60,6 @@ class VonKarman(GSObject):
     @property
     def L0(self):
         return self.SBProfile.getL0()
-
-    @property
-    def kcrit(self):
-        return self.SBProfile.getKCrit()
 
     @property
     def scale_unit(self):

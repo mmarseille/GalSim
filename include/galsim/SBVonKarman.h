@@ -44,12 +44,11 @@ namespace galsim {
          * @param[in] lam          Wavelength in m.
          * @param[in] r0           Fried parameter in m (at given wavelength lam).
          * @param[in] L0           Outer scale in m.
-         * @param[in] kcrit        Critical Fourier mode scale in radians per meter.
          * @param[in] flux         Flux.
          * @param[in] scale        Scale of 'x' in xValue in radians.
          * @param[in] gsparams     GSParams.
          */
-        SBVonKarman(double lam, double r0, double L0, double kcrit, double flux,
+        SBVonKarman(double lam, double r0, double L0, double flux,
                     double scale, const GSParamsPtr& gsparams);
 
         /// @brief Copy constructor
@@ -62,7 +61,6 @@ namespace galsim {
         double getLam() const;
         double getR0() const;
         double getL0() const;
-        double getKCrit() const;
         double getScale() const;
 
         double structureFunction(double) const;
