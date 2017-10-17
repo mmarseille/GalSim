@@ -45,10 +45,11 @@ namespace galsim {
         ~VonKarmanInfo() {}
 
         double kValue(double) const;
+        double xValue(double) const;
         double stepK() const;
         double maxK() const;
         double structureFunction(double rho) const;
-        // boost::shared_ptr<PhotonArray> shoot(int N, UniformDeviate ud) const;
+        boost::shared_ptr<PhotonArray> shoot(int N, UniformDeviate ud) const;
 
     private:
         VonKarmanInfo(const VonKarmanInfo& rhs); ///<Hide the copy constructor
@@ -65,6 +66,11 @@ namespace galsim {
         static double magic2;
         static double magic3;
         const GSParamsPtr _gsparams;
+
+        TableDD _radial;
+        boost::shared_ptr<OneDimensionalDeviate> _sampler;
+
+        void _buildRadialFunc();
     };
 
     //
