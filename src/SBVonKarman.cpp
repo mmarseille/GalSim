@@ -76,6 +76,12 @@ namespace galsim {
         return static_cast<const SBVonKarmanImpl&>(*_pimpl).getScale();
     }
 
+    double SBVonKarman::getDeltaAmplitude() const
+    {
+        assert(dynamic_cast<const SBVonKarmanImpl*>(_pimpl.get()));
+        return static_cast<const SBVonKarmanImpl&>(*_pimpl).getDeltaAmplitude();
+    }
+
     double SBVonKarman::structureFunction(double rho) const
     {
         assert(dynamic_cast<const SBVonKarmanImpl*>(_pimpl.get()));
@@ -103,10 +109,29 @@ namespace galsim {
         const VonKarmanInfo& _vki;
     };
 
+    double VonKarmanInfo::magic1 = 2*boost::math::tgamma(11./6)/(pow(2, 5./6)*pow(M_PI, 8./3))
+                                    *pow(24/5.*boost::math::tgamma(6./5), 5./6);
+    double VonKarmanInfo::magic2 = boost::math::tgamma(5./6)/pow(2., 1./6);
+    double VonKarmanInfo::magic3 = VonKarmanInfo::magic1*boost::math::tgamma(-5./6)/pow(2., 11./6);
+    double VonKarmanInfo::magic4 = boost::math::tgamma(11./6)*boost::math::tgamma(5./6)
+                                   / pow(M_PI,8./3)
+                                   * pow(24./5*boost::math::tgamma(6./5),5./6);
+
     VonKarmanInfo::VonKarmanInfo(double lam, double r0, double L0, const GSParamsPtr& gsparams) :
         _lam(lam), _r0(r0), _L0(L0), _r0L0m53(pow(r0/L0, -5./3)), _gsparams(gsparams),
+        _deltaAmplitude(exp(-0.5*magic4*_r0L0m53)),
         _radial(TableDD::spline)
     {
+        dbg << "magic1 = " << magic1 << '\n';
+        dbg << "magic2 = " << magic2 << '\n';
+        dbg << "magic3 = " << magic3 << '\n';
+        dbg << "magic4 = " << magic4 << '\n';
+        dbg << "r0 = " << r0 << '\n';
+        dbg << "L0 = " << L0 << '\n';
+        dbg << "r0L0m53 = " << _r0L0m53 << '\n';
+        dbg << "deltaAmplitude = " << exp(-0.5*magic4*_r0L0m53) << '\n';
+        dbg << "deltaAmplitudeInit = " << _deltaAmplitude << '\n';
+
         // determine maxK
         // want kValue(maxK)/kValue(0.0) = _gsparams->maxk_threshold;
         // note that kValue(0.0) = 1.
@@ -120,11 +145,6 @@ namespace galsim {
         // build the radial function, and along the way, set _stepk
         _buildRadialFunc();
     }
-
-    double VonKarmanInfo::magic1 = 2*boost::math::tgamma(11./6)/(pow(2, 5./6)*pow(M_PI, 8./3))
-                                    *pow(24/5.*boost::math::tgamma(6./5), 5./6);
-    double VonKarmanInfo::magic2 = boost::math::tgamma(5./6)/pow(2., 1./6);
-    double VonKarmanInfo::magic3 = VonKarmanInfo::magic1*boost::math::tgamma(-5./6)/pow(2., 11./6);
 
     double VonKarmanInfo::structureFunction(double rho) const {
         double rhoL0 = rho/_L0;
@@ -200,10 +220,6 @@ namespace galsim {
         _sampler.reset(new OneDimensionalDeviate(_radial, range, true, _gsparams));
     }
 
-    double VonKarmanInfo::stepK() const { return _stepk; }
-
-    double VonKarmanInfo::maxK() const { return _maxk; }
-
     boost::shared_ptr<PhotonArray> VonKarmanInfo::shoot(int N, UniformDeviate ud) const
     {
         dbg<<"VonKarmanInfo shoot: N = "<<N<<std::endl;
@@ -244,6 +260,9 @@ namespace galsim {
 
     double SBVonKarman::SBVonKarmanImpl::stepK() const
     { return _info->stepK()*_scale; }
+
+    double SBVonKarman::SBVonKarmanImpl::getDeltaAmplitude() const
+    { return _info->getDeltaAmplitude()*_flux; }
 
     std::string SBVonKarman::SBVonKarmanImpl::serialize() const
     {

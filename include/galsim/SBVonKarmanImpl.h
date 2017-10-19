@@ -44,10 +44,12 @@ namespace galsim {
 
         ~VonKarmanInfo() {}
 
+        double stepK() const { return _stepk; }
+        double maxK() const { return _maxk; }
+        double getDeltaAmplitude() const {return _deltaAmplitude; }
+
         double kValue(double) const;
         double xValue(double) const;
-        double stepK() const;
-        double maxK() const;
         double structureFunction(double rho) const;
         boost::shared_ptr<PhotonArray> shoot(int N, UniformDeviate ud) const;
 
@@ -61,10 +63,13 @@ namespace galsim {
         double _r0L0m53; // (r0/L0)^(-5/3)
         double _stepk;
         double _maxk;
+        double _deltaAmplitude;
 
-        static double magic1; // Some magic constants
-        static double magic2;
-        static double magic3;
+        // Magic constants that we can compute and store once.
+        static double magic1; // 2 gamma(11/6) / (2^(5/6) pi^(8/3)) * (24/5 gamma(6/5))^(5/6)
+        static double magic2; // gamma(5/6) / 2^(1/6)
+        static double magic3; // magic1 * gamma(-5/6) / 2^(11/6)
+        static double magic4; // gamma(11/6) gamma(5/6) / pi^(8/3) * (24/5 gamma(6/5))^(5/6)
         const GSParamsPtr _gsparams;
 
         TableDD _radial;
@@ -95,6 +100,7 @@ namespace galsim {
 
         double maxK() const;
         double stepK() const;
+        double getDeltaAmplitude() const;
 
         Position<double> centroid() const { return Position<double>(0., 0.); }
 

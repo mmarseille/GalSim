@@ -44,6 +44,7 @@ namespace galsim {
                 .def("getR0", &SBVonKarman::getR0)
                 .def("getL0", &SBVonKarman::getL0)
                 .def("getScale", &SBVonKarman::getScale)
+                .def("getDeltaAmplitude", &SBVonKarman::getDeltaAmplitude)
                 .def("structureFunction", &SBVonKarman::structureFunction)
                 .enable_pickling()
                 ;

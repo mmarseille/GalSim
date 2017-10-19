@@ -62,6 +62,7 @@ namespace galsim {
         double getR0() const;
         double getL0() const;
         double getScale() const;
+        double getDeltaAmplitude() const;
 
         double structureFunction(double) const;
 

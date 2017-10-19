@@ -65,5 +65,9 @@ class VonKarman(GSObject):
     def scale_unit(self):
         return galsim.AngleUnit(self.SBProfile.getScale())
 
+    @property
+    def deltaAmplitude(self):
+        return self.SBProfile.getDeltaAmplitude()
+
     def structureFunction(self, rho):
         return self.SBProfile.structureFunction(rho)

@@ -31,6 +31,10 @@ except ImportError:
 
 
 def test_vk():
+    # Check against pure python calculation
+    vk = galsim.VonKarman(lam=500.0, r0=0.15, L0=25.0)
+    np.testing.assert_approx_equal(vk.deltaAmplitude, 6.13892754335e-190)
+
     lam = 500.0
     r0 = 0.2
     L0 = 1e10
@@ -39,6 +43,7 @@ def test_vk():
 
     for k in np.linspace(0, vk.maxK(), 5):
         np.testing.assert_allclose(kolm.kValue(0,k).real, vk.kValue(0,k).real, rtol=0, atol=1e-5)
+
 
     # # Check which VonKarman profiles are actually constructible.
     # for lam in [300.0, 500.0, 1100.0]:
