@@ -45,7 +45,7 @@ namespace galsim {
          * @param[in] r0           Fried parameter in m (at given wavelength lam).
          * @param[in] L0           Outer scale in m.
          * @param[in] flux         Flux.
-         * @param[in] scale        Scale of 'x' in xValue in radians.
+         * @param[in] scale        Scale of 'x' in xValue in arcsec.
          * @param[in] gsparams     GSParams.
          */
         SBVonKarman(double lam, double r0, double L0, double flux,

@@ -31,6 +31,8 @@
 #include "Solve.h"
 #include "bessel/Roots.h"
 
+#define ARCSEC2RAD 180.*60*60/M_PI  // ~206265
+
 namespace galsim {
 
     inline double fast_pow(double x, double y)
@@ -122,31 +124,24 @@ namespace galsim {
         _deltaAmplitude(exp(-0.5*magic4*_r0L0m53)),
         _radial(TableDD::spline)
     {
-        dbg << "magic1 = " << magic1 << '\n';
-        dbg << "magic2 = " << magic2 << '\n';
-        dbg << "magic3 = " << magic3 << '\n';
-        dbg << "magic4 = " << magic4 << '\n';
-        dbg << "r0 = " << r0 << '\n';
-        dbg << "L0 = " << L0 << '\n';
-        dbg << "r0L0m53 = " << _r0L0m53 << '\n';
-        dbg << "deltaAmplitude = " << exp(-0.5*magic4*_r0L0m53) << '\n';
-        dbg << "deltaAmplitudeInit = " << _deltaAmplitude << '\n';
-
         // determine maxK
         // want kValue(maxK)/kValue(0.0) = _gsparams->maxk_threshold;
         // note that kValue(0.0) = 1.
         VKIkValueResid vkikvr(*this, _gsparams->maxk_threshold);
-        Solve<VKIkValueResid> solver(vkikvr, 1e5, 1e6);
+        Solve<VKIkValueResid> solver(vkikvr, 0.1, 1);
         solver.bracket();
         solver.setMethod(Brent);
         _maxk = solver.root();
-        dbg<<"_maxk = "<<_maxk<<" rad^-1 = "<<_maxk*M_PI/180/60/60<<" arcsec^-1\n";
+        dbg<<"_maxk = "<<_maxk<<" arcsec^-1\n";
+        dbg<<"SB(maxk) = "<<kValue(_maxk)<<'\n';
+        dbg<<"_deltaAmplitude = "<<_deltaAmplitude<<'\n';
 
         // build the radial function, and along the way, set _stepk
         _buildRadialFunc();
     }
 
     double VonKarmanInfo::structureFunction(double rho) const {
+    // rho in meters
         double rhoL0 = rho/_L0;
         if (rhoL0 < 1e-6) {
             return -magic3*fast_pow(2*M_PI*rho/_r0, 5./3);
@@ -156,8 +151,17 @@ namespace galsim {
         }
     }
 
+    double VonKarmanInfo::kValueNoTrunc(double k) const {
+    // k in inverse arcsec
+        return fmath::expd(-0.5*structureFunction(_lam*k*ARCSEC2RAD/(2*M_PI)));
+    }
+
     double VonKarmanInfo::kValue(double k) const {
-        return fmath::expd(-0.5*structureFunction(_lam*k/(2*M_PI)));
+    // k in inverse arcsec
+        double val = kValueNoTrunc(k) - _deltaAmplitude;
+        if (std::abs(val) < std::numeric_limits<double>::epsilon())
+            return 0.0;
+        return val;
     }
 
     class VKIXIntegrand : public std::unary_function<double,double>
@@ -166,11 +170,12 @@ namespace galsim {
         VKIXIntegrand(double r, const VonKarmanInfo& vki) : _r(r), _vki(vki) {}
         double operator()(double k) const { return _vki.kValue(k)*j0(k*_r)*k; }
     private:
-        double _r;
+        double _r;  //arcsec
         const VonKarmanInfo& _vki;
     };
 
     double VonKarmanInfo::xValue(double r) const {
+    // r in arcsec
         VKIXIntegrand I(r, *this);
         integ::IntRegion<double> reg(0, integ::MOCK_INF);
         return integ::int1d(I, reg,
@@ -178,22 +183,32 @@ namespace galsim {
                             _gsparams->integration_abserr)/(2.*M_PI);
     }
 
+    class VKIFluxDensity : public FluxDensity {
+    public:
+        VKIFluxDensity(const TableDD& logtab) : _logtab(logtab) {}
+        double operator()(double x) const { return _logtab(log(x)); }
+    private:
+        const TableDD& _logtab;
+    };
+
     void VonKarmanInfo::_buildRadialFunc() {
         set_verbose(2);
         double r = 0.0;
         double val = xValue(0.0);
         _radial.addEntry(r, val);
-        xdbg<<"f(0) = "<<val<<" rad^-2 = "<<val*M_PI*M_PI/180/180/60/60/60/60<<" arcsec^-2\n";
+        dbg<<"f(0) = "<<val<<" arcsec^-2\n";
 
         double dr = _gsparams->table_spacing * sqrt(sqrt(_gsparams->xvalue_accuracy / 10.));
-        dr *= M_PI/180/60/60;  // arcsec -> rad
-        xdbg<<"dr = "<<dr<<" rad = "<<dr*180*60*60/M_PI<<" arcsec\n";
+        dbg<<"dr = "<<dr<<" arcsec\n";
 
-        double sum = 0.0;
+        double sum = _deltaAmplitude;
+        xdbg<<"sum = "<<sum<<'\n';
         double thresh0 = 0.5 / (2.*M_PI*dr);
         double thresh1 = (1.-_gsparams->folding_threshold) / (2.*M_PI*dr);
+        // try to capture a bit more flux for photon shooting.
         double thresh2 = (1.-_gsparams->folding_threshold/2) / (2.*M_PI*dr);
         double R = 1e10, hlr = 1e10;
+        double maxR = 60.0; // hard cut at 1 arcminute.
         for(r = dr;
             (r < _gsparams->stepk_minimum_hlr*hlr) || (r < R) || (sum < thresh2);
             r += dr)
@@ -206,14 +221,20 @@ namespace galsim {
             xdbg<<"sum*2*pi*dr = "<<sum*2.*M_PI*dr<<'\n';
             if (hlr == 1e10 && sum > thresh0) hlr = r;
             if (R == 1e10 && sum > thresh1) R = r;
+            if (r >= maxR) {
+                if (hlr == 1e10)
+                    throw SBError("Cannot find VonKarman half-light-radius.");
+                R = maxR;
+                break;
+            }
         }
         dbg<<"Done loop to build radial function.\n";
-        dbg<<"R = "<<R<<" rad = "<<R*180*60*60/M_PI<<" arcsec\n";
-        dbg<<"hlr = "<<hlr<<" rad = "<<hlr*180*60*60/M_PI<<" arcsec\n";
+        dbg<<"R = "<<R<<" arcsec\n";
+        dbg<<"hlr = "<<hlr<<" arcsec\n";
         R = std::max(R, _gsparams->stepk_minimum_hlr*hlr);
         _stepk = M_PI / R;
-        dbg<<"stepk = "<<_stepk<<" rad^-1 = "<<_stepk*M_PI/180/60/60<<" arcsec^-1\n";
-        dbg<<"sum*2*pi*dr = "<<sum*2.*M_PI*dr<<"   (should ~= 0.999)\n";
+        dbg<<"stepk = "<<_stepk<<" arcsec^-1\n";
+        dbg<<"sum*2*pi*dr = "<<sum*2.*M_PI*dr<<"   (should ~= 0.997)\n";
 
         std::vector<double> range(2, 0.);
         range[1] = _radial.argMax();
@@ -286,12 +307,12 @@ namespace galsim {
 
     double SBVonKarman::SBVonKarmanImpl::structureFunction(double rho) const
     {
-        dbg<<"rho = "<<rho<<'\n';
+        xdbg<<"rho = "<<rho<<'\n';
         return _info->structureFunction(rho);
     }
 
     double SBVonKarman::SBVonKarmanImpl::kValue(double k) const
-    // this kValue assumes k is in inverse radians
+    // this kValue assumes k is in inverse arcsec
     {
         return _info->kValue(k);
     }
@@ -316,6 +337,7 @@ namespace galsim {
     };
 
     double SBVonKarman::SBVonKarmanImpl::xValue(double r) const {
+    // r in arcsec.
         VKXIntegrand I(r, *this);
         return integ::int1d(I, 0.0, integ::MOCK_INF,
                             gsparams->integration_relerr, gsparams->integration_abserr);

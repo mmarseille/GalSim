@@ -57,6 +57,8 @@ namespace galsim {
         VonKarmanInfo(const VonKarmanInfo& rhs); ///<Hide the copy constructor
         void operator=(const VonKarmanInfo& rhs); ///<Hide the assignment operator
 
+        double kValueNoTrunc(double) const;
+
         double _lam; // Wavelength in meters
         double _r0; // Fried parameter in meters
         double _L0; // Outer scale in meters

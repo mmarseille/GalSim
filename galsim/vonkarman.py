@@ -36,7 +36,7 @@ class VonKarman(GSObject):
         # all practical purposes though.
         if L0 > 1e10:
             L0 = 1e10
-        scale = scale_unit/galsim.radians
+        scale = scale_unit/galsim.arcsec
         GSObject.__init__(
             self,
             _galsim.SBVonKarman(
