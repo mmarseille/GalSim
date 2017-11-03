@@ -49,18 +49,27 @@ def test_vk():
         np.testing.assert_allclose(kolm.kValue(0,k).real, vk.kValue(0,k).real, rtol=0, atol=1e-5)
 
     # Check which VonKarman profiles are actually constructible.
-    for lam in [300.0, 500.0, 1100.0]:
-        for r0_500 in [0.05, 0.1, 0.2, 0.3  ]:
+    for lam in [1100.0]:
+        for r0_500 in [0.3]:
+    # for lam in [300.0, 500.0, 1100.0]:
+    #     for r0_500 in [0.05, 0.1, 0.2, 0.3]:
             r0 = r0_500*(lam/500)**(6./5)
-            for L0 in [1e10, 100.0, 25.0, 10.0]:
-                print("Attempting to use vk with lam, r0, L0 = {}".format((lam, r0, L0)))
+            for L0 in [10.0]:
+            # for L0 in [1e10, 100.0, 25.0, 10.0]:
+                print("Attempting to use vk with lam, r0, L0 = ({:4d}, {:0.3f}, {:10d})".format(int(lam), r0, int(L0)))
                 try:
                     vk = galsim.VonKarman(lam, r0, L0)
                     print(vk.stepK(), vk.maxK())
+                except RuntimeError:
+                    print("Failed to construct")
+                try:
                     vk.drawImage()
+                except RuntimeError:
+                    print("Failed to draw using FFT")
+                try:
                     vk.drawImage(method='phot', n_photons=100)
                 except RuntimeError:
-                    print("Failed")
+                    print("Failed to draw using photon-shooting")
 
 
 if __name__ == "__main__":

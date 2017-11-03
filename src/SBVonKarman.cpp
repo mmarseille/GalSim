@@ -17,7 +17,7 @@
  *    and/or other materials provided with the distribution.
  */
 
-// #define DEBUGLOGGING
+#define DEBUGLOGGING
 
 #include "galsim/IgnoreWarnings.h"
 
@@ -158,7 +158,10 @@ namespace galsim {
 
     double VonKarmanInfo::kValue(double k) const {
     // k in inverse arcsec
-        double val = kValueNoTrunc(k) - _deltaAmplitude;
+    // We're subtracting the asymptotic kValue limit here so that kValue->0 as k->inf.
+    // This means we should also rescale by (1-_deltaAmplitude) though, so we still retain
+    // kValue(0)=1.
+        double val = (kValueNoTrunc(k) - _deltaAmplitude)/(1-_deltaAmplitude);
         if (std::abs(val) < std::numeric_limits<double>::epsilon())
             return 0.0;
         return val;
@@ -219,7 +222,10 @@ namespace galsim {
             sum += r*val;
             xdbg<<"sum = "<<sum<<"  thresh0 = "<<thresh0<<"  thresh1 = "<<thresh1<<'\n';
             xdbg<<"sum*2*pi*dr = "<<sum*2.*M_PI*dr<<'\n';
-            if (hlr == 1e10 && sum > thresh0) hlr = r;
+            if (hlr == 1e10 && sum > thresh0) {
+                hlr = r;
+                dbg<<"hlr = "<<hlr<<" arcsec\n";
+            }
             if (R == 1e10 && sum > thresh1) R = r;
             if (r >= maxR) {
                 if (hlr == 1e10)
@@ -230,7 +236,6 @@ namespace galsim {
         }
         dbg<<"Done loop to build radial function.\n";
         dbg<<"R = "<<R<<" arcsec\n";
-        dbg<<"hlr = "<<hlr<<" arcsec\n";
         R = std::max(R, _gsparams->stepk_minimum_hlr*hlr);
         _stepk = M_PI / R;
         dbg<<"stepk = "<<_stepk<<" arcsec^-1\n";
