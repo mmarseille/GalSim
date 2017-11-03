@@ -137,7 +137,6 @@ namespace galsim {
 
         double _lam;
         double _r0;
-        double _r0m53;
         double _L0;
         double _flux;
         double _scale;
@@ -148,8 +147,6 @@ namespace galsim {
         SBVonKarmanImpl(const SBVonKarmanImpl& rhs);
         void operator=(const SBVonKarmanImpl& rhs);
 
-        mutable boost::shared_ptr<FluxDensity> _radial;
-        mutable boost::shared_ptr<OneDimensionalDeviate> _sampler;
         static LRUCache<boost::tuple<double,double,double,GSParamsPtr>,VonKarmanInfo> cache;
     };
 }
