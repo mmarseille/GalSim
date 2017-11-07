@@ -31,43 +31,92 @@ from .gsobject import GSObject
 
 class VonKarman(GSObject):
     def __init__(self, lam, r0, L0=np.inf, flux=1, scale_unit=galsim.arcsec,
-                 gsparams=None):
+                 doDelta=False, gsparams=None):
         # We lose stability if L0 gets too large.  This should be close enough to infinity for
         # all practical purposes though.
         if L0 > 1e10:
             L0 = 1e10
+        # Need _scale_unit for repr roundtriping.
+        self._scale_unit = scale_unit
         scale = scale_unit/galsim.arcsec
-        GSObject.__init__(
-            self,
-            _galsim.SBVonKarman(
-                lam*1e-9,  # nm -> m
-                r0,
-                L0,
-                flux,
-                scale,
-                gsparams
-            )
-        )
+        self._sbvk = _galsim.SBVonKarman(lam, r0, L0, flux, scale, doDelta, gsparams)
+        self._deltaAmplitude = self._sbvk.getDeltaAmplitude()
+        # Add in a delta function with appropriate amplitude if requested.
+        if doDelta:
+            self._sbdelta = _galsim.SBDeltaFunction(self._deltaAmplitude, gsparams=gsparams)
+            # A bit wasteful maybe, but params should be cached so not too bad to recreate _sbvk?
+            self._sbvk = _galsim.SBVonKarman(lam, r0, L0, flux-self._deltaAmplitude, scale,
+                                             doDelta, gsparams)
+
+            GSObject.__init__(self, _galsim.SBAdd([self._sbvk, self._sbdelta], gsparams=gsparams))
+        else:
+            GSObject.__init__(self, self._sbvk)
 
     @property
     def lam(self):
-        return self.SBProfile.getLam()*1e9  # m -> nm
+        return self._sbvk.getLam()
 
     @property
     def r0(self):
-        return self.SBProfile.getR0()
+        return self._sbvk.getR0()
 
     @property
     def L0(self):
-        return self.SBProfile.getL0()
+        return self._sbvk.getL0()
 
     @property
     def scale_unit(self):
-        return galsim.AngleUnit(self.SBProfile.getScale())
+        return self._scale_unit
+        # Type conversion makes the following not repr-roundtrip-able, so we store init input as a
+        # hidden attribute.
+        # return galsim.AngleUnit(self._sbvk.getScale())
+
+    @property
+    def doDelta(self):
+        return self._sbvk.getDoDelta()
 
     @property
     def deltaAmplitude(self):
-        return self.SBProfile.getDeltaAmplitude()
+        return self._deltaAmplitude
+
+    @property
+    def halfLightRadius(self):
+        return self._sbvk.getHalfLightRadius()
 
     def structureFunction(self, rho):
-        return self.SBProfile.structureFunction(rho)
+        return self._sbvk.structureFunction(rho)
+
+    def __eq__(self, other):
+        return (isinstance(other, galsim.VonKarman) and
+        self.lam == other.lam and
+        self.r0 == other.r0 and
+        self.L0 == other.L0 and
+        self.flux == other.flux and
+        self.scale_unit == other.scale_unit and
+        self.doDelta == other.doDelta and
+        self.gsparams == other.gsparams)
+
+    def __hash__(self):
+        return hash(("galsim.VonKarman", self.lam, self.r0, self.L0, self.flux, self.scale_unit,
+                     self.doDelta, self.gsparams))
+
+    def __repr__(self):
+        out = "galsim.VonKarman(lam=%r, r0=%r, L0=%r"%(self.lam, self.r0, self.L0)
+        out += ", flux=%r"%self.flux
+        if self.scale_unit != galsim.arcsec:
+            out += ", scale_unit=%r"%self.scale_unit
+        if self.doDelta:
+            out += ", doDelta=True"
+        out += ", gsparams=%r"%self.gsparams
+        out += ")"
+        return out
+
+    def __str__(self):
+        return "galsim.VonKarman(lam=%r, r0=%r, L0=%r)"%(self.lam, self.r0, self.L0)
+
+_galsim.SBVonKarman.__getinitargs__ = lambda self: (
+    self.getLam(), self.getR0(), self.getL0(), self.getFlux(), self.getScale(),
+    self.getDoDelta(), self.getGSParams())
+_galsim.SBVonKarman.__getstate__ = lambda self: None
+_galsim.SBVonKarman.__repr__ = lambda self: \
+    "galsim._galsim.SBVonKarman(%r, %r, %r, %r, %r, %r, %r)"%self.__getinitargs__()

@@ -31,9 +31,10 @@
 #include "Solve.h"
 #include "bessel/Roots.h"
 
-#define ARCSEC2RAD 180.*60*60/M_PI  // ~206265
-
 namespace galsim {
+
+    const double ARCSEC2RAD = 180.*60*60/M_PI;  // ~206265
+    const double MOCK_INF = 1.e300;
 
     inline double fast_pow(double x, double y)
     { return fmath::expd(y * std::log(x)); }
@@ -47,8 +48,8 @@ namespace galsim {
     //
 
     SBVonKarman::SBVonKarman(double lam, double r0, double L0, double flux,
-                             double scale, const GSParamsPtr& gsparams) :
-        SBProfile(new SBVonKarmanImpl(lam, r0, L0, flux, scale, gsparams)) {}
+                             double scale, bool doDelta, const GSParamsPtr& gsparams) :
+        SBProfile(new SBVonKarmanImpl(lam, r0, L0, flux, scale, doDelta, gsparams)) {}
 
     SBVonKarman::SBVonKarman(const SBVonKarman &rhs) : SBProfile(rhs) {}
 
@@ -78,10 +79,22 @@ namespace galsim {
         return static_cast<const SBVonKarmanImpl&>(*_pimpl).getScale();
     }
 
+    bool SBVonKarman::getDoDelta() const
+    {
+        assert(dynamic_cast<const SBVonKarmanImpl*>(_pimpl.get()));
+        return static_cast<const SBVonKarmanImpl&>(*_pimpl).getDoDelta();
+    }
+
     double SBVonKarman::getDeltaAmplitude() const
     {
         assert(dynamic_cast<const SBVonKarmanImpl*>(_pimpl.get()));
         return static_cast<const SBVonKarmanImpl&>(*_pimpl).getDeltaAmplitude();
+    }
+
+    double SBVonKarman::getHalfLightRadius() const
+    {
+        assert(dynamic_cast<const SBVonKarmanImpl*>(_pimpl.get()));
+        return static_cast<const SBVonKarmanImpl&>(*_pimpl).getHalfLightRadius();
     }
 
     double SBVonKarman::structureFunction(double rho) const
@@ -119,24 +132,40 @@ namespace galsim {
                                    / pow(M_PI,8./3)
                                    * pow(24./5*boost::math::tgamma(6./5),5./6);
 
-    VonKarmanInfo::VonKarmanInfo(double lam, double r0, double L0, const GSParamsPtr& gsparams) :
+    VonKarmanInfo::VonKarmanInfo(double lam, double r0, double L0, bool doDelta,
+                                 const GSParamsPtr& gsparams) :
         _lam(lam), _r0(r0), _L0(L0), _r0L0m53(pow(r0/L0, -5./3)), _gsparams(gsparams),
         _deltaAmplitude(exp(-0.5*magic4*_r0L0m53)),
+        _doDelta(doDelta),
         _radial(TableDD::spline)
     {
         // determine maxK
         // want kValue(maxK)/kValue(0.0) = _gsparams->maxk_threshold;
         // note that kValue(0.0) = 1.
-        VKIkValueResid vkikvr(*this, _gsparams->maxk_threshold);
-        Solve<VKIkValueResid> solver(vkikvr, 0.1, 1);
-        solver.bracket();
-        solver.setMethod(Brent);
-        _maxk = solver.root();
+        double mkt = _gsparams->maxk_threshold;
+        if (_doDelta) {
+            if (mkt < _deltaAmplitude) {
+                // If the delta function amplitude is too large, then no matter how far out in k we
+                // go, kValue never drops below that amplitude.
+                // _maxk = std::numeric_limits<double>::infinity();
+                _maxk = MOCK_INF;
+            } else {
+                mkt = mkt*(1-_deltaAmplitude)+_deltaAmplitude;
+            }
+        }
+        // if (_maxk != std::numeric_limits<double>::infinity()) {
+        if (_maxk != MOCK_INF) {
+            VKIkValueResid vkikvr(*this, mkt);
+            Solve<VKIkValueResid> solver(vkikvr, 0.1, 1);
+            solver.bracket();
+            solver.setMethod(Brent);
+            _maxk = solver.root();
+        }
         dbg<<"_maxk = "<<_maxk<<" arcsec^-1\n";
         dbg<<"SB(maxk) = "<<kValue(_maxk)<<'\n';
         dbg<<"_deltaAmplitude = "<<_deltaAmplitude<<'\n';
 
-        // build the radial function, and along the way, set _stepk
+        // build the radial function, and along the way, set _stepk, _hlr.
         _buildRadialFunc();
     }
 
@@ -201,14 +230,17 @@ namespace galsim {
         dbg<<"dlogr = "<<dlogr<<"\n";
 
         double sum = 0.0;
+        if (_doDelta) sum += _deltaAmplitude;
+
         xdbg<<"sum = "<<sum<<'\n';
 
         double thresh1 = (1.-_gsparams->folding_threshold);
         double thresh2 = (1.-_gsparams->folding_threshold/2);
-        double R = 1e10, hlr = 1e10;
+        double R = 1e10;
+        _hlr = 1e10;
         double maxR = 60.0; // hard cut at 1 arcminute.
         for(r = exp(logr);
-            (r < _gsparams->stepk_minimum_hlr*hlr) || (r < R) || (sum < thresh2);
+            (r < _gsparams->stepk_minimum_hlr*_hlr) || (r < R) || (sum < thresh2);
             logr += dlogr, r=exp(logr), dr=r*(1-exp(-dlogr)))
         {
             val = xValue(r);
@@ -219,13 +251,13 @@ namespace galsim {
             xdbg<<"dr = "<<dr<<'\n';
             xdbg<<"sum = "<<sum<<'\n';
 
-            if (hlr == 1e10 && sum > 0.5) {
-                hlr = r;
-                dbg<<"hlr = "<<hlr<<" arcsec\n";
+            if (_hlr == 1e10 && sum > 0.5) {
+                _hlr = r;
+                dbg<<"hlr = "<<_hlr<<" arcsec\n";
             }
             if (R == 1e10 && sum > thresh1) R=r;
             if (r >= maxR) {
-                if (hlr == 1e10)
+                if (_hlr == 1e10)
                     throw SBError("Cannot find von Karman half-light-radius.");
                 R = maxR;
                 break;
@@ -233,8 +265,8 @@ namespace galsim {
         }
         dbg<<"Finished building radial function.\n";
         dbg<<"R = "<<R<<" arcsec\n";
-        dbg<<"HLR = "<<hlr<<" arcsec\n";
-        R = std::max(R, _gsparams->stepk_minimum_hlr*hlr);
+        dbg<<"HLR = "<<_hlr<<" arcsec\n";
+        R = std::max(R, _gsparams->stepk_minimum_hlr*_hlr);
         _stepk = M_PI / R;
         dbg<<"stepk = "<<_stepk<<" arcsec^-1\n";
         dbg<<"sum = "<<sum<<"   (should be ~= 0.997)\n";
@@ -252,7 +284,7 @@ namespace galsim {
         return _sampler->shoot(N,ud);
     }
 
-    LRUCache<boost::tuple<double,double,double,GSParamsPtr>,VonKarmanInfo>
+    LRUCache<boost::tuple<double,double,double,bool,GSParamsPtr>,VonKarmanInfo>
         SBVonKarman::SBVonKarmanImpl::cache(sbp::max_vonKarman_cache);
 
     //
@@ -264,14 +296,16 @@ namespace galsim {
     //
 
     SBVonKarman::SBVonKarmanImpl::SBVonKarmanImpl(double lam, double r0, double L0, double flux,
-                                                  double scale, const GSParamsPtr& gsparams) :
+                                                  double scale, bool doDelta,
+                                                  const GSParamsPtr& gsparams) :
         SBProfileImpl(gsparams),
         _lam(lam),
         _r0(r0),
         _L0(L0),
         _flux(flux),
         _scale(scale),
-        _info(cache.get(boost::make_tuple(lam, r0, L0, this->gsparams.duplicate())))
+        _doDelta(doDelta),
+        _info(cache.get(boost::make_tuple(1e-9*lam, r0, L0, doDelta, this->gsparams.duplicate())))
     { }
 
     double SBVonKarman::SBVonKarmanImpl::maxK() const
@@ -283,6 +317,9 @@ namespace galsim {
     double SBVonKarman::SBVonKarmanImpl::getDeltaAmplitude() const
     { return _info->getDeltaAmplitude()*_flux; }
 
+    double SBVonKarman::SBVonKarmanImpl::getHalfLightRadius() const
+    { return _info->getHalfLightRadius(); }
+
     std::string SBVonKarman::SBVonKarmanImpl::serialize() const
     {
         std::ostringstream oss(" ");
@@ -291,7 +328,10 @@ namespace galsim {
             <<getLam()<<", "
             <<getR0()<<", "
             <<getL0()<<", "
-            <<getFlux()<<", galsim.GSParams("<<*gsparams<<"))";
+            <<getFlux()<<", "
+            <<getScale()<<", "
+            <<getDoDelta()<<", "
+            <<"galsim.GSParams("<<*gsparams<<"))";
         return oss.str();
     }
 

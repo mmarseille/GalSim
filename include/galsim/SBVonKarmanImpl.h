@@ -40,13 +40,14 @@ namespace galsim {
     class VonKarmanInfo
     {
     public:
-        VonKarmanInfo(double lam, double r0, double L0, const GSParamsPtr& gsparams);
+        VonKarmanInfo(double lam, double r0, double L0, bool doDelta, const GSParamsPtr& gsparams);
 
         ~VonKarmanInfo() {}
 
         double stepK() const { return _stepk; }
         double maxK() const { return _maxk; }
         double getDeltaAmplitude() const {return _deltaAmplitude; }
+        double getHalfLightRadius() const {return _hlr; }
 
         double kValue(double) const;
         double xValue(double) const;
@@ -66,6 +67,8 @@ namespace galsim {
         double _stepk;
         double _maxk;
         double _deltaAmplitude;
+        bool _doDelta;
+        double _hlr; // half-light-radius
 
         // Magic constants that we can compute once and store.
         static double magic1; // 2 gamma(11/6) / (2^(5/6) pi^(8/3)) * (24/5 gamma(6/5))^(5/6)
@@ -91,7 +94,7 @@ namespace galsim {
     class SBVonKarman::SBVonKarmanImpl : public SBProfileImpl
     {
     public:
-        SBVonKarmanImpl(double lam, double r0, double L0, double flux, double scale,
+        SBVonKarmanImpl(double lam, double r0, double L0, double flux, double scale, bool doDelta,
                         const GSParamsPtr& gsparams);
         ~SBVonKarmanImpl() {}
 
@@ -103,6 +106,7 @@ namespace galsim {
         double maxK() const;
         double stepK() const;
         double getDeltaAmplitude() const;
+        double getHalfLightRadius() const;
 
         Position<double> centroid() const { return Position<double>(0., 0.); }
 
@@ -111,6 +115,7 @@ namespace galsim {
         double getR0() const { return _r0; }
         double getL0() const { return _L0; }
         double getScale() const { return _scale; }
+        bool getDoDelta() const { return _doDelta; }
         // double maxSB();// const { return _xnorm * _info->xValue(0.); }
         double maxSB() const { return 1.0; }  // no idea how right/wrong this is.
 
@@ -140,6 +145,7 @@ namespace galsim {
         double _L0;
         double _flux;
         double _scale;
+        bool _doDelta;
 
         boost::shared_ptr<VonKarmanInfo> _info;
 
@@ -147,7 +153,7 @@ namespace galsim {
         SBVonKarmanImpl(const SBVonKarmanImpl& rhs);
         void operator=(const SBVonKarmanImpl& rhs);
 
-        static LRUCache<boost::tuple<double,double,double,GSParamsPtr>,VonKarmanInfo> cache;
+        static LRUCache<boost::tuple<double,double,double,bool,GSParamsPtr>,VonKarmanInfo> cache;
     };
 }
 

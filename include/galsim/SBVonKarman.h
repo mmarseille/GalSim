@@ -39,17 +39,17 @@ namespace galsim {
         /**
          * @brief Constructor.
          *
-         * Note I'm assuming all units are mks.
-         *
-         * @param[in] lam          Wavelength in m.
+         * @param[in] lam          Wavelength in nm.
          * @param[in] r0           Fried parameter in m (at given wavelength lam).
          * @param[in] L0           Outer scale in m.
          * @param[in] flux         Flux.
          * @param[in] scale        Scale of 'x' in xValue in arcsec.
+         * @param[in] doDelta      Whether or not to include delta-function contribution to
+                                   encircled energy when computing stepk/maxk/HLR.
          * @param[in] gsparams     GSParams.
          */
         SBVonKarman(double lam, double r0, double L0, double flux,
-                    double scale, const GSParamsPtr& gsparams);
+                    double scale, bool doDelta, const GSParamsPtr& gsparams);
 
         /// @brief Copy constructor
         SBVonKarman(const SBVonKarman& rhs);
@@ -62,7 +62,9 @@ namespace galsim {
         double getR0() const;
         double getL0() const;
         double getScale() const;
+        bool getDoDelta() const;
         double getDeltaAmplitude() const;
+        double getHalfLightRadius() const;
 
         double structureFunction(double) const;
 

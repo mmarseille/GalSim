@@ -30,41 +30,60 @@ except ImportError:
     import galsim
 
 
+@timer
 def test_vk():
-    # Check against pure python calculation
-    vk = galsim.VonKarman(lam=500.0, r0=0.15, L0=25.0)
-    np.testing.assert_approx_equal(vk.deltaAmplitude, 6.13892754335e-190)
-
-    # Check that vK -> Kolmogorov as L0 -> inf
-    lam = 500.0
-    r0 = 0.2
-    L0 = 1e10
-    vk = galsim.VonKarman(lam, r0, L0, scale_unit=galsim.arcsec)
-    kolm = galsim.Kolmogorov(lam=lam, r0=r0)
-
-    for k in np.linspace(0, vk.maxK(), 5):
-        np.testing.assert_allclose(kolm.kValue(0,k).real, vk.kValue(0,k).real, rtol=0, atol=1e-5)
-
-    # Check which VonKarman profiles are actually constructible.
-    for lam in [300.0, 500.0, 1100.0]:
-        for r0_500 in [0.05, 0.1, 0.2, 0.3]:
+    """Test the generation of VonKarman profiles
+    """
+    if __name__ == '__main__':
+    # if __name__ != '__main__':
+        lams = [300.0, 500.0, 1100.0]
+        r0_500s = [0.05, 0.15, 0.3]
+        L0s = [1e10, 25.0, 10.0]
+        doDeltas = [False, True]
+    else:
+        lams = [500.0]
+        r0_500s = [0.2]
+        L0s = [25.0]
+        doDeltas = [False]
+    for lam in lams:
+        for r0_500 in r0_500s:
             r0 = r0_500*(lam/500)**(6./5)
-            for L0 in [1e10, 100.0, 25.0, 10.0]:
-                print("Attempting to use vk with lam, r0, L0 = ({:4d}, {:0.3f}, {:10d})".format(int(lam), r0, int(L0)))
-                try:
-                    vk = galsim.VonKarman(lam, r0, L0)
-                    print(vk.stepK(), vk.maxK())
-                except RuntimeError:
-                    print("Failed to construct")
-                try:
-                    vk.drawImage()
-                except RuntimeError:
-                    print("Failed to draw using FFT")
-                try:
-                    vk.drawImage(method='phot', n_photons=100)
-                except RuntimeError:
-                    print("Failed to draw using photon-shooting")
+            for L0 in L0s:
+                for doDelta in doDeltas:
+                    kwargs = {'lam':lam, 'r0':r0, 'L0':L0, 'doDelta':doDelta}
+                    print(kwargs)
+
+                    vk = galsim.VonKarman(**kwargs)
+                    np.testing.assert_almost_equal(vk.flux, 1.0)
+
+                    check_basic(vk, "VonKarman")
+                    do_pickle(vk)
+                    do_pickle(vk.SBProfile)
+                    do_pickle(vk.SBProfile, lambda x: (x.getFlux(), x.getGSParams()))
+
+                    vk = galsim.VonKarman(**kwargs, flux=2.2)
+                    np.testing.assert_almost_equal(vk.flux, 2.2)
+
+
+@timer
+def test_vk_delta():
+    """Test a VonKarman with a significant delta-function amplitude"""
+    kwargs = {'lam':1100.0, 'r0':0.8, 'L0':5.0, 'flux':2.2}
+    vk = galsim.VonKarman(**kwargs)
+    # This profile has more than 15% of its flux in the delta-function component.
+    np.testing.assert_array_less(0.15, vk.deltaAmplitude/vk.flux)
+    # If doDelta is False (the default), then the asymptotic kValue should still be zero.
+    np.testing.assert_almost_equal(vk.kValue(1e10, 0).real, 0.0)
+    # But if we use doDelta=True, then the asymptotic kValue should be that of the delta function.
+    vkd = galsim.VonKarman(**kwargs, doDelta=True)
+    np.testing.assert_almost_equal(vkd.kValue(1e10, 0).real, vkd.deltaAmplitude)
+
+    # Either way, the fluxes should be the same.
+    np.testing.assert_almost_equal(vk.flux, vkd.flux)
+    assert vk != vkd
+    assert vk.halfLightRadius != vkd.halfLightRadius
 
 
 if __name__ == "__main__":
     test_vk()
+    test_vk_delta()
