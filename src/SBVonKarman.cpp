@@ -360,7 +360,7 @@ namespace galsim {
             _r(r), _sbvki(sbvki)
         {}
 
-        double operator()(double k) const { return std::real(_sbvki.kValue(k))*k*j0(k*_r); }
+        double operator()(double k) const { return _sbvki.kValue(k)*k*j0(k*_r); }
     private:
         double _r;
         const SBVonKarman::SBVonKarmanImpl& _sbvki;
@@ -370,7 +370,7 @@ namespace galsim {
     // r in arcsec.
         VKXIntegrand I(r, *this);
         return integ::int1d(I, 0.0, integ::MOCK_INF,
-                            gsparams->integration_relerr, gsparams->integration_abserr)*_flux;
+                            gsparams->integration_relerr, gsparams->integration_abserr)/(2*M_PI);
     }
 
     double SBVonKarman::SBVonKarmanImpl::xValue(const Position<double>& p) const

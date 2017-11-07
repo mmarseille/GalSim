@@ -100,7 +100,7 @@ namespace galsim {
 
         bool isAxisymmetric() const { return true; }
         bool hasHardEdges() const { return false; }
-        bool isAnalyticX() const { return false; }
+        bool isAnalyticX() const { return true; }
         bool isAnalyticK() const { return true; }
 
         double maxK() const;
@@ -116,8 +116,7 @@ namespace galsim {
         double getL0() const { return _L0; }
         double getScale() const { return _scale; }
         bool getDoDelta() const { return _doDelta; }
-        // double maxSB();// const { return _xnorm * _info->xValue(0.); }
-        double maxSB() const { return 1.0; }  // no idea how right/wrong this is.
+        double maxSB() const { return _flux * _info->xValue(0.); }
 
         /**
          * @brief SBVonKarman photon-shooting is done numerically with `OneDimensionalDeviate`

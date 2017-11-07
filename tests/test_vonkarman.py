@@ -31,10 +31,10 @@ except ImportError:
 
 
 @timer
-def test_vk(args):
+def test_vk(slow=False):
     """Test the generation of VonKarman profiles
     """
-    if __name__ == '__main__' and args.slow:
+    if __name__ == '__main__' and slow:
         lams = [300.0, 500.0, 1100.0]
         r0_500s = [0.05, 0.15, 0.3]
         L0s = [1e10, 25.0, 10.0]
@@ -52,16 +52,17 @@ def test_vk(args):
                     kwargs = {'lam':lam, 'r0':r0, 'L0':L0, 'doDelta':doDelta}
                     print(kwargs)
 
-                    vk = galsim.VonKarman(**kwargs)
-                    np.testing.assert_almost_equal(vk.flux, 1.0)
+                    vk = galsim.VonKarman(**kwargs, flux=2.2)
+                    np.testing.assert_almost_equal(vk.flux, 2.2)
 
                     check_basic(vk, "VonKarman")
                     do_pickle(vk)
                     do_pickle(vk.SBProfile)
                     do_pickle(vk.SBProfile, lambda x: (x.getFlux(), x.getGSParams()))
 
-                    vk = galsim.VonKarman(**kwargs, flux=2.2)
-                    np.testing.assert_almost_equal(vk.flux, 2.2)
+                    img = galsim.Image(16, 16, scale=0.2)
+                    do_shoot(vk, img, "VonKarman")
+                    do_kvalue(vk, img, "VonKarman")
 
 
 @timer
@@ -85,11 +86,61 @@ def test_vk_delta():
     assert vkd.halfLightRadius < vk.halfLightRadius
 
 
+@timer
+def test_vk_scale():
+    """Test vk scale argument"""
+    kwargs = {'lam':500, 'r0':0.2, 'L0':25.0, 'flux':2.2}
+    vk_arcsec = galsim.VonKarman(**kwargs, scale_unit=galsim.arcsec)
+    vk_arcmin = galsim.VonKarman(**kwargs, scale_unit=galsim.arcmin)
+
+    np.testing.assert_almost_equal(vk_arcsec.flux, vk_arcmin.flux)
+    np.testing.assert_almost_equal(vk_arcsec.kValue(0.0, 0.0), vk_arcmin.kValue(0.0, 0.0))
+    np.testing.assert_almost_equal(vk_arcsec.kValue(0.0, 10.0), vk_arcmin.kValue(0.0, 600.0))
+    np.testing.assert_almost_equal(vk_arcsec.xValue(0.0, 6.0), vk_arcmin.xValue(0.0, 0.1))
+
+    img1 = vk_arcsec.drawImage(nx=32, ny=32, scale=0.2)
+    img2 = vk_arcmin.drawImage(nx=32, ny=32, scale=0.2/60.0)
+    np.testing.assert_almost_equal(img1.array, img2.array)
+
+
+@timer
+def test_vk_ne():
+    gsp = galsim.GSParams(maxk_threshold=1.1e-3, folding_threshold=5.1e-3)
+
+    objs = [galsim.VonKarman(lam=500.0, r0=0.2, L0=25.0),
+            galsim.VonKarman(lam=500.0, r0=0.2, L0=25.0, flux=2.2),
+            galsim.VonKarman(lam=500.0, r0=0.2, L0=20.0),
+            galsim.VonKarman(lam=500.0, r0=0.1, L0=20.0),
+            galsim.VonKarman(lam=550.0, r0=0.1, L0=20.0),
+            galsim.VonKarman(lam=550.0, r0=0.1, L0=20.0, doDelta=True),
+            galsim.VonKarman(lam=550.0, r0=0.1, L0=20.0, scale_unit=galsim.arcmin),
+            galsim.VonKarman(lam=550.0, r0=0.1, L0=20.0, gsparams=gsp)]
+    all_obj_diff(objs)
+
+# def time_test():
+#     import time
+#     t0 = time.time()
+#     vk = galsim.VonKarman(lam=700, r0=0.1, L0=24.3)
+#     vk.drawImage(nx=16, ny=16, scale=0.2)
+#     t1 = time.time()
+#     print("Time to create/draw first time: {:6.3f}s".format(t1-t0))
+#     for i in range(10):
+#         vk.drawImage(nx=16, ny=16, scale=0.2)
+#     t2 = time.time()
+#     print("Time to draw 10 more: {:6.3f}s".format(t2-t1))
+#     for i in range(10):
+#         vk.drawImage(nx=16, ny=16, scale=0.2, method='phot', n_photons=50000)
+#     t3 = time.time()
+#     print("Time to photon-shoot 10 more with 50000 photons: {:6.3f}s".format(t3-t2))
+
 if __name__ == "__main__":
     from argparse import ArgumentParser
     parser = ArgumentParser()
     parser.add_argument("--slow", action='store_true', help="Run slow tests")
     args = parser.parse_args()
 
-    test_vk(args)
+    test_vk(args.slow)
     test_vk_delta()
+    test_vk_scale()
+    test_vk_ne()
+    # time_test()
