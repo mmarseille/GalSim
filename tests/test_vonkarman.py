@@ -31,11 +31,10 @@ except ImportError:
 
 
 @timer
-def test_vk():
+def test_vk(args):
     """Test the generation of VonKarman profiles
     """
-    if __name__ == '__main__':
-    # if __name__ != '__main__':
+    if __name__ == '__main__' and args.slow:
         lams = [300.0, 500.0, 1100.0]
         r0_500s = [0.05, 0.15, 0.3]
         L0s = [1e10, 25.0, 10.0]
@@ -81,9 +80,16 @@ def test_vk_delta():
     # Either way, the fluxes should be the same.
     np.testing.assert_almost_equal(vk.flux, vkd.flux)
     assert vk != vkd
-    assert vk.halfLightRadius != vkd.halfLightRadius
+    # The half-light-radius of the profile with doDelta=True should be smaller though, as we're
+    # accounting for the 15% flux at r=0 in this case
+    assert vkd.halfLightRadius < vk.halfLightRadius
 
 
 if __name__ == "__main__":
-    test_vk()
+    from argparse import ArgumentParser
+    parser = ArgumentParser()
+    parser.add_argument("--slow", action='store_true', help="Run slow tests")
+    args = parser.parse_args()
+
+    test_vk(args)
     test_vk_delta()
