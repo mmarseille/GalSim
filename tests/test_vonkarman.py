@@ -117,6 +117,22 @@ def test_vk_ne():
             galsim.VonKarman(lam=550.0, r0=0.1, L0=20.0, gsparams=gsp)]
     all_obj_diff(objs)
 
+
+@timer
+def test_vk_eq_kolm():
+    lam = 500.0
+    r0 = 0.2
+    L0 = 3e5  # Need to make this surprisingly large to make vk -> kolm.
+    flux = 3.3
+    kolm = galsim.Kolmogorov(lam=lam, r0=r0, flux=flux)
+    vk = galsim.VonKarman(lam=lam, r0=r0, L0=L0, flux=flux)
+
+    np.testing.assert_allclose(kolm.xValue(0,0), vk.xValue(0,0), rtol=1e-3, atol=0)
+
+    kolm_img = kolm.drawImage(nx=24, ny=24, scale=0.2)
+    vk_img = vk.drawImage(nx=24, ny=24, scale=0.2)
+    np.testing.assert_allclose(kolm_img.array, vk_img.array, atol=flux*1e-5, rtol=0)
+
 # def time_test():
 #     import time
 #     t0 = time.time()
@@ -143,4 +159,5 @@ if __name__ == "__main__":
     test_vk_delta()
     test_vk_scale()
     test_vk_ne()
+    test_vk_eq_kolm()
     # time_test()
