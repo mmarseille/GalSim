@@ -69,7 +69,16 @@ def test_vk(slow=False):
 def test_vk_delta():
     """Test a VonKarman with a significant delta-function amplitude"""
     kwargs = {'lam':1100.0, 'r0':0.8, 'L0':5.0, 'flux':2.2}
+    # Try to see if we can catch the warning first
+    try:
+        if 'assert_warns' in np.testing.__dict__:
+            np.testing.assert_warns(galsim.VonKarman, **kwargs)
+    except ImportError:
+        print('The assert_raises tests require nose')
+
+    kwargs['suppress_warning'] = True
     vk = galsim.VonKarman(**kwargs)
+
     # This profile has more than 15% of its flux in the delta-function component.
     np.testing.assert_array_less(0.15, vk.deltaAmplitude/vk.flux)
     # If doDelta is False (the default), then the asymptotic kValue should still be zero.

@@ -60,22 +60,26 @@ class VonKarman(GSObject):
     you want to keep the delta function, though, then you can pass the doDelta=True argument to the
     VonKarman initializer.
 
-    @param lam              Wavelength in nanometers
-    @param r0               Fried parameter in meters.
-    @param L0               Outer scale in meters.  [default: np.inf]
-    @param flux             The flux (in photons/cm^2/s) of the profile. [default: 1]
-    @param scale_unit       Units assumed when drawing this profile or evaluating xValue, kValue,
-                            etc.  Should be a galsim.AngleUnit or a string that can be used to
-                            construct one (e.g., 'arcsec', 'radians', etc.).
-                            [default: galsim.arcsec]
-    @param doDelta          Include delta-function at origin? (not recommended; see above).
-                            [default: False]
-    @param gsparams         An optional GSParams argument.  See the docstring for GSParams for
-                            details. [default: None]
+    @param lam               Wavelength in nanometers
+    @param r0                Fried parameter in meters.
+    @param L0                Outer scale in meters.  [default: np.inf]
+    @param flux              The flux (in photons/cm^2/s) of the profile. [default: 1]
+    @param scale_unit        Units assumed when drawing this profile or evaluating xValue, kValue,
+                             etc.  Should be a galsim.AngleUnit or a string that can be used to
+                             construct one (e.g., 'arcsec', 'radians', etc.).
+                             [default: galsim.arcsec]
+    @param doDelta           Include delta-function at origin? (not recommended; see above).
+                             [default: False]
+    @param suppress_warning  For some combinations of r0 and L0, it may become impossible to satisfy
+                             the gsparams.maxk_threshold criterion (see above).  In that case, the
+                             code will emit a warning alerting the user that they may have entered a
+                             non-physical regime.  However, this warning can be suppressed with this
+                             keyword.  [default: False]
+    @param gsparams          An optional GSParams argument.  See the docstring for GSParams for
+                             details. [default: None]
     """
-
     def __init__(self, lam, r0, L0=np.inf, flux=1, scale_unit=galsim.arcsec,
-                 doDelta=False, gsparams=None):
+                 doDelta=False, suppress_warning=False, gsparams=None):
         # We lose stability if L0 gets too large.  This should be close enough to infinity for
         # all practical purposes though.
         if L0 > 1e10:
@@ -87,6 +91,15 @@ class VonKarman(GSObject):
         scale = scale_unit/galsim.arcsec
         self._sbvk = _galsim.SBVonKarman(lam, r0, L0, flux, scale, doDelta, gsparams)
         self._deltaAmplitude = self._sbvk.getDeltaAmplitude()
+        self._suppress_warning = suppress_warning
+        if not suppress_warning:
+            if self._deltaAmplitude > self._sbvk.getGSParams().maxk_threshold:
+                import warnings
+                warnings.warn("VonKarman delta-function component is larger than maxk_threshold.  "
+                              "Please see docstring for information about this component and how to"
+                              " toggle it.")
+
+
         # Add in a delta function with appropriate amplitude if requested.
         if doDelta:
             self._sbdelta = _galsim.SBDeltaFunction(self._deltaAmplitude, gsparams=gsparams)
