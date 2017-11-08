@@ -124,11 +124,11 @@ namespace galsim {
         const VonKarmanInfo& _vki;
     };
 
-    double VonKarmanInfo::magic1 = 2*boost::math::tgamma(11./6)/(pow(2, 5./6)*pow(M_PI, 8./3))
+    const double VonKarmanInfo::magic1 = 2*boost::math::tgamma(11./6)/(pow(2, 5./6)*pow(M_PI, 8./3))
                                     *pow(24/5.*boost::math::tgamma(6./5), 5./6);
-    double VonKarmanInfo::magic2 = boost::math::tgamma(5./6)/pow(2., 1./6);
-    double VonKarmanInfo::magic3 = VonKarmanInfo::magic1*boost::math::tgamma(-5./6)/pow(2., 11./6);
-    double VonKarmanInfo::magic4 = boost::math::tgamma(11./6)*boost::math::tgamma(5./6)
+    const double VonKarmanInfo::magic2 = boost::math::tgamma(5./6)/pow(2., 1./6);
+    const double VonKarmanInfo::magic3 = VonKarmanInfo::magic1*boost::math::tgamma(-5./6)/pow(2., 11./6);
+    const double VonKarmanInfo::magic4 = boost::math::tgamma(11./6)*boost::math::tgamma(5./6)
                                    / pow(M_PI,8./3)
                                    * pow(24./5*boost::math::tgamma(6./5),5./6);
 
