@@ -107,9 +107,9 @@ class VonKarman(GSObject):
             self._sbvk = _galsim.SBVonKarman(lam, r0, L0, flux-self._deltaAmplitude, scale,
                                              doDelta, gsparams)
 
-            GSObject.__init__(self, _galsim.SBAdd([self._sbvk, self._sbdelta], gsparams=gsparams))
+            self._sbp = _galsim.SBAdd([self._sbvk, self._sbdelta], gsparams=gsparams)
         else:
-            GSObject.__init__(self, self._sbvk)
+            self._sbp = self._sbvk
 
     @property
     def lam(self):
