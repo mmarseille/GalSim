@@ -38,18 +38,18 @@ def test_vk(slow=False):
         lams = [300.0, 500.0, 1100.0]
         r0_500s = [0.05, 0.15, 0.3]
         L0s = [1e10, 25.0, 10.0]
-        doDeltas = [False, True]
+        do_deltas = [False, True]
     else:
         lams = [500.0]
         r0_500s = [0.2]
         L0s = [25.0]
-        doDeltas = [False]
+        do_deltas = [False]
     for lam in lams:
         for r0_500 in r0_500s:
             r0 = r0_500*(lam/500)**(6./5)
             for L0 in L0s:
-                for doDelta in doDeltas:
-                    kwargs = {'lam':lam, 'r0':r0, 'L0':L0, 'doDelta':doDelta}
+                for do_delta in do_deltas:
+                    kwargs = {'lam':lam, 'r0':r0, 'L0':L0, 'do_delta':do_delta}
                     print(kwargs)
 
                     vk = galsim.VonKarman(**kwargs, flux=2.2)
@@ -80,19 +80,19 @@ def test_vk_delta():
     vk = galsim.VonKarman(**kwargs)
 
     # This profile has more than 15% of its flux in the delta-function component.
-    np.testing.assert_array_less(0.15, vk.deltaAmplitude/vk.flux)
-    # If doDelta is False (the default), then the asymptotic kValue should still be zero.
+    np.testing.assert_array_less(0.15, vk.delta_amplitude/vk.flux)
+    # If do_delta is False (the default), then the asymptotic kValue should still be zero.
     np.testing.assert_almost_equal(vk.kValue(1e10, 0).real, 0.0)
-    # But if we use doDelta=True, then the asymptotic kValue should be that of the delta function.
-    vkd = galsim.VonKarman(**kwargs, doDelta=True)
-    np.testing.assert_almost_equal(vkd.kValue(1e10, 0).real, vkd.deltaAmplitude)
+    # But if we use do_delta=True, then the asymptotic kValue should be that of the delta function.
+    vkd = galsim.VonKarman(**kwargs, do_delta=True)
+    np.testing.assert_almost_equal(vkd.kValue(1e10, 0).real, vkd.delta_amplitude)
 
     # Either way, the fluxes should be the same.
     np.testing.assert_almost_equal(vk.flux, vkd.flux)
     assert vk != vkd
-    # The half-light-radius of the profile with doDelta=True should be smaller though, as we're
+    # The half-light-radius of the profile with do_delta=True should be smaller though, as we're
     # accounting for the 15% flux at r=0 in this case
-    assert vkd.halfLightRadius < vk.halfLightRadius
+    assert vkd.half_light_radius < vk.half_light_radius
 
 
 @timer
@@ -121,7 +121,7 @@ def test_vk_ne():
             galsim.VonKarman(lam=500.0, r0=0.2, L0=20.0),
             galsim.VonKarman(lam=500.0, r0=0.1, L0=20.0),
             galsim.VonKarman(lam=550.0, r0=0.1, L0=20.0),
-            galsim.VonKarman(lam=550.0, r0=0.1, L0=20.0, doDelta=True),
+            galsim.VonKarman(lam=550.0, r0=0.1, L0=20.0, do_delta=True),
             galsim.VonKarman(lam=550.0, r0=0.1, L0=20.0, scale_unit=galsim.arcmin),
             galsim.VonKarman(lam=550.0, r0=0.1, L0=20.0, gsparams=gsp)]
     all_obj_diff(objs)

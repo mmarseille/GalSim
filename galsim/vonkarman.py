@@ -57,7 +57,7 @@ class VonKarman(GSObject):
 
     In almost all cases of interest this evaluates to something tiny, often on the order of 10^-100
     or smaller.  By default, GalSim will ignore this delta function entirely.  If for some reason
-    you want to keep the delta function, though, then you can pass the doDelta=True argument to the
+    you want to keep the delta function, though, then you can pass the do_delta=True argument to the
     VonKarman initializer.
 
     @param lam               Wavelength in nanometers
@@ -68,7 +68,7 @@ class VonKarman(GSObject):
                              etc.  Should be a galsim.AngleUnit or a string that can be used to
                              construct one (e.g., 'arcsec', 'radians', etc.).
                              [default: galsim.arcsec]
-    @param doDelta           Include delta-function at origin? (not recommended; see above).
+    @param do_delta          Include delta-function at origin? (not recommended; see above).
                              [default: False]
     @param suppress_warning  For some combinations of r0 and L0, it may become impossible to satisfy
                              the gsparams.maxk_threshold criterion (see above).  In that case, the
@@ -79,7 +79,7 @@ class VonKarman(GSObject):
                              details. [default: None]
     """
     def __init__(self, lam, r0, L0=np.inf, flux=1, scale_unit=galsim.arcsec,
-                 doDelta=False, suppress_warning=False, gsparams=None):
+                 do_delta=False, suppress_warning=False, gsparams=None):
         # We lose stability if L0 gets too large.  This should be close enough to infinity for
         # all practical purposes though.
         if L0 > 1e10:
@@ -89,11 +89,11 @@ class VonKarman(GSObject):
         # Need _scale_unit for repr roundtriping.
         self._scale_unit = scale_unit
         scale = scale_unit/galsim.arcsec
-        self._sbvk = _galsim.SBVonKarman(lam, r0, L0, flux, scale, doDelta, gsparams)
-        self._deltaAmplitude = self._sbvk.getDeltaAmplitude()
+        self._sbvk = _galsim.SBVonKarman(lam, r0, L0, flux, scale, do_delta, gsparams)
+        self._delta_amplitude = self._sbvk.getDeltaAmplitude()
         self._suppress_warning = suppress_warning
         if not suppress_warning:
-            if self._deltaAmplitude > self._sbvk.getGSParams().maxk_threshold:
+            if self._delta_amplitude > self._sbvk.getGSParams().maxk_threshold:
                 import warnings
                 warnings.warn("VonKarman delta-function component is larger than maxk_threshold.  "
                               "Please see docstring for information about this component and how to"
@@ -101,11 +101,11 @@ class VonKarman(GSObject):
 
 
         # Add in a delta function with appropriate amplitude if requested.
-        if doDelta:
-            self._sbdelta = _galsim.SBDeltaFunction(self._deltaAmplitude, gsparams=gsparams)
+        if do_delta:
+            self._sbdelta = _galsim.SBDeltaFunction(self._delta_amplitude, gsparams=gsparams)
             # A bit wasteful maybe, but params should be cached so not too bad to recreate _sbvk?
-            self._sbvk = _galsim.SBVonKarman(lam, r0, L0, flux-self._deltaAmplitude, scale,
-                                             doDelta, gsparams)
+            self._sbvk = _galsim.SBVonKarman(lam, r0, L0, flux-self._delta_amplitude, scale,
+                                             do_delta, gsparams)
 
             self._sbp = _galsim.SBAdd([self._sbvk, self._sbdelta], gsparams=gsparams)
         else:
@@ -131,15 +131,17 @@ class VonKarman(GSObject):
         # return galsim.AngleUnit(self._sbvk.getScale())
 
     @property
-    def doDelta(self):
+    def do_delta(self):
         return self._sbvk.getDoDelta()
 
     @property
-    def deltaAmplitude(self):
-        return self._deltaAmplitude
+    def delta_amplitude(self):
+        # Don't use self._sbvk.getDeltaAmplitude, since we might have rescaled the flux of the sbvk
+        # component when including a SBDeltaFunction.
+        return self._delta_amplitude
 
     @property
-    def halfLightRadius(self):
+    def half_light_radius(self):
         return self._sbvk.getHalfLightRadius()
 
     def structureFunction(self, rho):
@@ -152,20 +154,20 @@ class VonKarman(GSObject):
         self.L0 == other.L0 and
         self.flux == other.flux and
         self.scale_unit == other.scale_unit and
-        self.doDelta == other.doDelta and
+        self.do_delta == other.do_delta and
         self.gsparams == other.gsparams)
 
     def __hash__(self):
         return hash(("galsim.VonKarman", self.lam, self.r0, self.L0, self.flux, self.scale_unit,
-                     self.doDelta, self.gsparams))
+                     self.do_delta, self.gsparams))
 
     def __repr__(self):
         out = "galsim.VonKarman(lam=%r, r0=%r, L0=%r"%(self.lam, self.r0, self.L0)
         out += ", flux=%r"%self.flux
         if self.scale_unit != galsim.arcsec:
             out += ", scale_unit=%r"%self.scale_unit
-        if self.doDelta:
-            out += ", doDelta=True"
+        if self.do_delta:
+            out += ", do_delta=True"
         out += ", gsparams=%r"%self.gsparams
         out += ")"
         return out
