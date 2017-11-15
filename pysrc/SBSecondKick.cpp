@@ -34,21 +34,23 @@ namespace galsim {
         static void wrap()
         {
             bp::class_<SBSecondKick,bp::bases<SBProfile> >("SBSecondKick", bp::no_init)
-                .def(bp::init<double,double,double,double,double,double,double,
+                .def(bp::init<double,double,double,double,double,double,bool,
                              boost::shared_ptr<GSParams> >(
-                        (bp::arg("lam"), bp::arg("r0"), bp::arg("L0"), bp::arg("D"), bp::arg("obs"),
-                         bp::arg("kcrit"), bp::arg("flux"), bp::arg("gsparams")=bp::object())
-                ))
+                        (bp::arg("lam"), bp::arg("r0"), bp::arg("L0"), bp::arg("kcrit"), bp::arg("flux"),
+                         bp::arg("scale"), bp::arg("do_delta"), bp::arg("gsparams")=bp::object()))
+                )
                 .def(bp::init<const SBSecondKick &>())
                 .def("getLam", &SBSecondKick::getLam)
                 .def("getR0", &SBSecondKick::getR0)
                 .def("getL0", &SBSecondKick::getL0)
-                .def("getD", &SBSecondKick::getD)
-                .def("getObs", &SBSecondKick::getObs)
                 .def("getKCrit", &SBSecondKick::getKCrit)
+                .def("getScale", &SBSecondKick::getScale)
+                .def("getDoDelta", &SBSecondKick::getDoDelta)
+                .def("getDeltaAmplitude", &SBSecondKick::getDeltaAmplitude)
+                .def("getHalfLightRadius", &SBSecondKick::getHalfLightRadius)
+                .def("phasePower", &SBSecondKick::phasePower)
                 .def("structureFunction", &SBSecondKick::structureFunction)
-                .def("tau0", &SBSecondKick::tau0)
-                .def("PSF", &SBSecondKick::PSF)
+                .def("structureFunctionDirect", &SBSecondKick::structureFunctionDirect)
                 .enable_pickling()
                 ;
         }

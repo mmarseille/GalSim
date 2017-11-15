@@ -36,7 +36,6 @@ namespace galsim {
     //
     //
 
-    // Mostly here just to cache the radial function for photon-shooting.
     class VonKarmanInfo
     {
     public:

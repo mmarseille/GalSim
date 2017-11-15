@@ -22,21 +22,76 @@
 
 #include "SBProfileImpl.h"
 #include "SBSecondKick.h"
-#include "SBAiry.h"
 #include "LRUCache.h"
 #include "OneDimensionalDeviate.h"
 #include "Table.h"
 
 namespace galsim {
+
+    //
+    //
+    //
+    //SecondKickInfo
+    //
+    //
+    //
+
+    class SecondKickInfo
+    {
+    public:
+        SecondKickInfo(double lam, double r0, double L0, double kcrit, bool doDelta,
+                       const GSParamsPtr& gsparams);
+
+        ~SecondKickInfo() {}
+
+        double stepK() const { return _stepk; }
+        double maxK() const { return _maxk; }
+        double getDeltaAmplitude() const { return _deltaAmplitude; }
+        double getHalfLightRadius() const { return _hlr; }
+
+        double kvalue(double) const;
+        double xvalue(double) const;
+        double structureFunction(double) const;
+        double structureFunctionDirect(double) const;
+        double phasePower(double) const;
+
+    private:
+        SecondKickInfo(const SecondKickInfo& rhs); ///<Hide the copy constructor
+        void operator=(const SecondKickInfo& rhs); ///<Hide the assignment operator
+
+        double vKStructureFunction(double) const;
+        double complementaryStructureFunction(double) const;
+        double kValueNoTrunc(double) const;
+
+        double _lam; // Wavelength in meters
+        double _r0; // Fried parameter in meters
+        double _r0m53; // r0^(-5./3)
+        double _L0; // Outer scale in meters
+        double _2piL02; // (2pi/L0)^(2)
+        double _r0L0m53; // (r0/L0)^(-5/3)
+        double _kcrit;
+        double _stepk;
+        double _maxk;
+        double _deltaAmplitude;
+        bool _doDelta;
+        double _hlr; // half-light-radius
+
+        // Magic constants that we can compute once and store.
+        const static double magic1;
+        const static double magic2;
+        const static double magic3;
+        const static double magic4;
+        const static double magic5;
+
+        const GSParamsPtr _gsparams;
+    };
+
     class SBSecondKick::SBSecondKickImpl : public SBProfileImpl
     {
     public:
-        SBSecondKickImpl(double lam, double r0, double L0, double D, double obs, double kcrit,
-                         double flux, const GSParamsPtr& gsparams);
+        SBSecondKickImpl(double lam, double r0, double L0, double kcrit,
+                         double flux, double scale, bool doDelta, const GSParamsPtr& gsparams);
         ~SBSecondKickImpl() {}
-
-        // double xValue(const Position<double>& p) const;
-        // std::complex<double> kValue(const Position<double>& k) const;
 
         bool isAxisymmetric() const { return true; }
         bool hasHardEdges() const { return false; }
@@ -45,18 +100,18 @@ namespace galsim {
 
         double maxK() const;
         double stepK() const;
+        double getDeltaAmplitude() const;
+        double getHalfLightRadius() const;
 
-        Position<double> centroid() const
-        { return Position<double>(0., 0.); }
+        Position<double> centroid() const { return Position<double>(0., 0.); }
 
         double getFlux() const { return _flux; }
-        double getLam() const {return _lam; }
-        double getR0() const {return _r0; }
-        double getL0() const {return _L0; }
-        double getD() const {return _D; }
-        double getObs() const {return _obs; }
-        double getKCrit() const {return _kcrit; }
-        // double maxSB();// const { return _xnorm * _info->xValue(0.); }
+        double getLam() const { return _lam; }
+        double getR0() const { return _r0; }
+        double getL0() const { return _L0; }
+        double getKCrit() const { return _kcrit; }
+        double getScale() const { return _scale; }
+        bool getDoDelta() const {return _doDelta; }
         double maxSB() const { return 1.0; }  // no idea how right/wrong this is.
 
         /**
@@ -67,41 +122,37 @@ namespace galsim {
          * @param[in] ud UniformDeviate that will be used to draw photons from distribution.
          * @returns PhotonArray containing all the photons' info.
          */
-        boost::shared_ptr<PhotonArray> shoot(int N, UniformDeviate ud) const;
+        boost::shared_ptr<PhotonArray> shoot(int N, UniformDeviate ud) const
+        { throw SBError("SBSecondKick::shoot() is not implemented"); }
 
         double xValue(const Position<double>& p) const
         { throw SBError("SBSecondKick::xValue() is not implemented"); }
         std::complex<double> kValue(const Position<double>& p) const
         { throw SBError("SBSecondKick::kValue() is not implemented"); }
 
+        double phasePower(double kappa) const;
         double structureFunction(double rho) const;
-        double tau0(double rho) const;
-        double PSF(double alpha) const;
+        double structureFunctionDirect(double rho) const;
 
         std::string serialize() const;
 
     private:
-
         double _lam;
         double _r0;
         double _L0;
-        double _D;
-        double _obs;
         double _kcrit;
         double _flux;
+        double _scale;
+        bool _doDelta;
+
+        boost::shared_ptr<SecondKickInfo> _info;
 
         // Copy constructor and op= are undefined.
         SBSecondKickImpl(const SBSecondKickImpl& rhs);
         void operator=(const SBSecondKickImpl& rhs);
 
-        mutable boost::shared_ptr<FluxDensity> _radial;
-        mutable boost::shared_ptr<OneDimensionalDeviate> _sampler;
-        mutable Table<double,double> _structure_fn;
-        mutable Table<double,double> _PSF;
-
-        boost::shared_ptr<SBAiry> _sbairy;
-
-        void _buildStructureFunctionLUT();
+        static LRUCache<boost::tuple<double,double,double,double,bool,GSParamsPtr>,SecondKickInfo>
+            cache;
     };
 }
 

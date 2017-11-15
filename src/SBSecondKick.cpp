@@ -22,16 +22,33 @@
 #include "galsim/IgnoreWarnings.h"
 
 #define BOOST_NO_CXX11_SMART_PTR
+#include <boost/math/special_functions/gamma.hpp>
 #include <boost/math/special_functions/bessel.hpp>
 
 #include "SBSecondKick.h"
 #include "SBSecondKickImpl.h"
-#include "SBAiry.h"
+#include "fmath/fmath.hpp"
+
 
 namespace galsim {
-    SBSecondKick::SBSecondKick(double lam, double r0, double L0, double D, double obs, double kcrit,
-                               double flux, const GSParamsPtr& gsparams) :
-        SBProfile(new SBSecondKickImpl(lam, r0, L0, D, obs, kcrit, flux, gsparams)) {}
+
+    const double ARCSEC2RAD = 180.*60*60/M_PI;  // ~206265
+    const double MOCK_INF = 1.e300;
+
+    inline double fast_pow(double x, double y)
+    { return fmath::expd(y * std::log(x)); }
+
+    //
+    //
+    //
+    //SBSecondKick
+    //
+    //
+    //
+
+    SBSecondKick::SBSecondKick(double lam, double r0, double L0, double kcrit, double flux,
+                               double scale, bool doDelta, const GSParamsPtr& gsparams) :
+        SBProfile(new SBSecondKickImpl(lam, r0, L0, kcrit, flux, scale, doDelta, gsparams)) {}
 
     SBSecondKick::SBSecondKick(const SBSecondKick &rhs) : SBProfile(rhs) {}
 
@@ -55,22 +72,40 @@ namespace galsim {
         return static_cast<const SBSecondKickImpl&>(*_pimpl).getL0();
     }
 
-    double SBSecondKick::getD() const
-    {
-        assert(dynamic_cast<const SBSecondKickImpl*>(_pimpl.get()));
-        return static_cast<const SBSecondKickImpl&>(*_pimpl).getD();
-    }
-
-    double SBSecondKick::getObs() const
-    {
-        assert(dynamic_cast<const SBSecondKickImpl*>(_pimpl.get()));
-        return static_cast<const SBSecondKickImpl&>(*_pimpl).getObs();
-    }
-
     double SBSecondKick::getKCrit() const
     {
         assert(dynamic_cast<const SBSecondKickImpl*>(_pimpl.get()));
         return static_cast<const SBSecondKickImpl&>(*_pimpl).getKCrit();
+    }
+
+    double SBSecondKick::getScale() const
+    {
+        assert(dynamic_cast<const SBSecondKickImpl*>(_pimpl.get()));
+        return static_cast<const SBSecondKickImpl&>(*_pimpl).getScale();
+    }
+
+    bool SBSecondKick::getDoDelta() const
+    {
+        assert(dynamic_cast<const SBSecondKickImpl*>(_pimpl.get()));
+        return static_cast<const SBSecondKickImpl&>(*_pimpl).getDoDelta();
+    }
+
+    double SBSecondKick::getDeltaAmplitude() const
+    {
+        assert(dynamic_cast<const SBSecondKickImpl*>(_pimpl.get()));
+        return static_cast<const SBSecondKickImpl&>(*_pimpl).getDeltaAmplitude();
+    }
+
+    double SBSecondKick::getHalfLightRadius() const
+    {
+        assert(dynamic_cast<const SBSecondKickImpl*>(_pimpl.get()));
+        return static_cast<const SBSecondKickImpl&>(*_pimpl).getHalfLightRadius();
+    }
+
+    double SBSecondKick::phasePower(double kappa) const
+    {
+        assert(dynamic_cast<const SBSecondKickImpl*>(_pimpl.get()));
+        return static_cast<const SBSecondKickImpl&>(*_pimpl).phasePower(kappa);
     }
 
     double SBSecondKick::structureFunction(double rho) const
@@ -79,153 +114,140 @@ namespace galsim {
         return static_cast<const SBSecondKickImpl&>(*_pimpl).structureFunction(rho);
     }
 
-    double SBSecondKick::tau0(double rho) const
+    double SBSecondKick::structureFunctionDirect(double rho) const
     {
         assert(dynamic_cast<const SBSecondKickImpl*>(_pimpl.get()));
-        return static_cast<const SBSecondKickImpl&>(*_pimpl).tau0(rho);
+        return static_cast<const SBSecondKickImpl&>(*_pimpl).structureFunctionDirect(rho);
     }
 
-    double SBSecondKick::PSF(double alpha) const
+    //
+    //
+    //
+    //SecondKickInfo
+    //
+    //
+    //
+
+    const double SecondKickInfo::magic1 = 2*boost::math::tgamma(11./6)/(pow(2, 5./6)*pow(M_PI, 8./3))
+                                          * pow(24/5.*boost::math::tgamma(6./5), 5./6);
+    const double SecondKickInfo::magic2 = boost::math::tgamma(5./6)/pow(2., 1./6);
+    const double SecondKickInfo::magic3 = SecondKickInfo::magic1*boost::math::tgamma(-5./6)/pow(2., 11./6);
+    const double SecondKickInfo::magic4 = boost::math::tgamma(11./6)*boost::math::tgamma(5./6)
+                                          / pow(M_PI,8./3)
+                                          * pow(24./5*boost::math::tgamma(6./5),5./6);
+    const double SecondKickInfo::magic5 = boost::math::tgamma(11./6)*boost::math::tgamma(11./6)
+                                          * pow(2., 8./3)
+                                          * pow(24./5*boost::math::tgamma(6./5),5./6);
+
+    SecondKickInfo::SecondKickInfo(double lam, double r0, double L0, double kcrit, bool doDelta,
+                                   const GSParamsPtr& gsparams) :
+        _lam(lam), _r0(r0), _r0m53(fast_pow(r0, -5./3)), _L0(L0), _2piL02(4*M_PI*M_PI/L0/L0),
+        _r0L0m53(fast_pow(r0/L0, -5./3)), _kcrit(kcrit), _doDelta(doDelta), _gsparams(gsparams)
+    { }
+
+    double SecondKickInfo::phasePower(double kappa) const {
+        return magic5*_r0m53*fast_pow(kappa*kappa+_2piL02, -11./6);
+    }
+
+    double SecondKickInfo::vKStructureFunction(double rho) const {
+    // rho in meters
+        double rhoL0 = rho/_L0;
+        if (rhoL0 < 1e-6) {
+            return -magic3*fast_pow(2*M_PI*rho/_r0, 5./3);
+        } else {
+            double x = 2*M_PI*rhoL0;
+            return magic1*_r0L0m53*(magic2-fast_pow(x, 5./6)*boost::math::cyl_bessel_k(5./6, x));
+        }
+    }
+
+    class SFIntegrand : public std::unary_function<double,double>
     {
-        assert(dynamic_cast<const SBSecondKickImpl*>(_pimpl.get()));
-        return static_cast<const SBSecondKickImpl&>(*_pimpl).PSF(alpha);
+    public:
+        SFIntegrand(double rho, const SecondKickInfo& ski) : _rho(rho), _ski(ski) {}
+        double operator()(double kappa) const {
+            return _ski.phasePower(kappa)*(1-j0(kappa*_rho))*kappa;
+        }
+    private:
+        const double _rho;
+        const SecondKickInfo& _ski;
+    };
+
+    double SecondKickInfo::structureFunctionDirect(double rho) const {
+        SFIntegrand I(rho, *this);
+        return integ::int1d(I, 0.0, integ::MOCK_INF,
+                            _gsparams->integration_relerr, _gsparams->integration_abserr)/M_PI;
     }
 
-    SBSecondKick::SBSecondKickImpl::SBSecondKickImpl(double lam, double r0, double L0, double D,
-                                                     double obs, double kcrit, double flux,
+    double SecondKickInfo::complementaryStructureFunction(double rho) const {
+        SFIntegrand I(rho, *this);
+        return integ::int1d(I, 0.0, _kcrit,
+                            _gsparams->integration_relerr, _gsparams->integration_abserr)/M_PI;
+    }
+
+    double SecondKickInfo::structureFunction(double rho) const {
+        return vKStructureFunction(rho) - complementaryStructureFunction(rho);
+    }
+
+    LRUCache<boost::tuple<double,double,double,double,bool,GSParamsPtr>,SecondKickInfo>
+        SBSecondKick::SBSecondKickImpl::cache(sbp::max_secondKick_cache);
+
+    //
+    //
+    //
+    //SBSecondKickImpl
+    //
+    //
+    //
+
+    SBSecondKick::SBSecondKickImpl::SBSecondKickImpl(double lam, double r0, double L0, double kcrit,
+                                                     double flux, double scale, bool doDelta,
                                                      const GSParamsPtr& gsparams) :
         SBProfileImpl(gsparams),
-        _lam(lam*1e-9), //nm->m
+        _lam(lam),
         _r0(r0),
         _L0(L0),
-        _D(D),
-        _obs(obs),
         _kcrit(kcrit),
         _flux(flux),
-        _structure_fn(Table<double,double>::spline),
-        _PSF(Table<double,double>::spline),
-        _sbairy(new SBAiry(_lam/_D*206265, obs, flux, gsparams))
-    {
-        dbg<<"SBSecondKickImpl constructor: gsparams = "<<gsparams.get()<<std::endl;
-        dbg<<"this->gsparams = "<<this->gsparams.get()<<std::endl;
-
-        // Make structure function lookup table.
-        _buildStructureFunctionLUT();
-    }
+        _scale(scale),
+        _doDelta(doDelta),
+        _info(cache.get(boost::make_tuple(1e-9*lam, r0, L0, kcrit, doDelta,
+                                          this->gsparams.duplicate())))
+    { }
 
     double SBSecondKick::SBSecondKickImpl::maxK() const
-    { return 2.*M_PI*_D/_lam/206265; /*inverse arcsec*/ }
+    { return _info->maxK()*_scale; }
 
     double SBSecondKick::SBSecondKickImpl::stepK() const
-    { return M_PI/3.0; /*Hack for now.*/}
+    { return _info->stepK()*_scale; }
+
+    double SBSecondKick::SBSecondKickImpl::getDeltaAmplitude() const
+    { return _info->getDeltaAmplitude()*_flux; }
+
+    double SBSecondKick::SBSecondKickImpl::getHalfLightRadius() const
+    { return _info->getHalfLightRadius()*_scale; }
 
     std::string SBSecondKick::SBSecondKickImpl::serialize() const
     {
-        std::ostringstream oss(" ");
+        std::ostringstream oss (" ");
         oss.precision(std::numeric_limits<double>::digits10 + 4);
         oss << "galsim._galsim.SBSecondKick("
             <<getLam()<<", "
             <<getR0()<<", "
             <<getL0()<<", "
-            <<getD()<<", "
-            <<getObs()<<", "
             <<getKCrit()<<", "
-            <<getFlux()<<", galsim.GSParams("<<*gsparams<<"))";
+            <<getFlux()<<", "
+            <<getScale()<<", "
+            <<getDoDelta()<<", "
+            <<"galsim.GSParams("<<*gsparams<<"))";
         return oss.str();
     }
 
-    class StructureFunctionIntegrand : public std::unary_function<double,double>
-    {
-    public:
-        StructureFunctionIntegrand(double r0, double L0, double rho) :
-            _r0fac(std::pow(r0,-5./3)), _L0sqrinv(1./L0/L0), _rho(rho) {}
-        double operator()(double kappa) const {
-            return _phasePower(kappa)*(1.0-j0(_rho*kappa))*kappa;
-        }
-    private:
-        double _phasePower(double kappa) const {
-            return 0.033/0.423*_r0fac*std::pow(kappa*kappa + _L0sqrinv, -11./6);
-        }
-        double _r0fac;  // r0^(-5./3)
-        double _L0sqrinv;  // L0^(-2)
-        double _rho;
-    };
+    double SBSecondKick::SBSecondKickImpl::phasePower(double kappa) const
+    { return _info->phasePower(kappa); }
 
-    void SBSecondKick::SBSecondKickImpl::_buildStructureFunctionLUT() {
-        double dlogrho = gsparams->table_spacing * sqrt(sqrt(gsparams->kvalue_accuracy / 10.));
-        dbg<<"Using dlogrho = "<<dlogrho<<std::endl;
-        // Need to determine a smarter way to set rhomin and rhomax...
-        double rhomin = 1e-6;
-        double rhomax = 10.0;
-        for (double logrho = std::log(rhomin)-0.001; logrho < std::log(rhomax); logrho += dlogrho){
-            double rho = std::exp(logrho);
-            StructureFunctionIntegrand I(_r0, _L0, rho);
-            integ::IntRegion<double> reg(_kcrit, integ::MOCK_INF);
-            double val = integ::int1d(I, reg,
-                                      gsparams->integration_relerr,
-                                      gsparams->integration_abserr);
-            val *= 8.0*M_PI*M_PI;
-            dbg<<"logrho = "<<logrho<<", I("<<rho<<") = "<<val<<std::endl;
-            _structure_fn.addEntry(logrho,val);
-        }
-    }
+    double SBSecondKick::SBSecondKickImpl::structureFunction(double rho) const
+    { return _info->structureFunction(rho); }
 
-    double SBSecondKick::SBSecondKickImpl::structureFunction(double rho) const {
-        double logrho = std::log(rho);
-        if (logrho > _structure_fn.argMax()) {
-            return _structure_fn(_structure_fn.argMax());
-        } else return _structure_fn(logrho);
-    }
-
-    double SBSecondKick::SBSecondKickImpl::tau0(double rho) const {
-        return _sbairy->kValue(Position<double>(0, 2*M_PI*rho/_lam/206265)).real();
-    }
-
-    class PSFIntegrand : public std::unary_function<double,double>
-    {
-    public:
-        PSFIntegrand(double alpha, double lam, const SBSecondKick::SBSecondKickImpl* const pimpl) :
-            _alpha_o_lam(alpha/lam), _pimpl(pimpl) {}
-        double operator()(double rho) const {
-            return rho * j0(2*M_PI*_alpha_o_lam*rho) * _pimpl->tau0(rho) * std::exp(-0.5*_pimpl->structureFunction(rho));
-        }
-    private:
-        double _alpha_o_lam;
-        const SBSecondKick::SBSecondKickImpl* const _pimpl;
-    };
-
-    double SBSecondKick::SBSecondKickImpl::PSF(double alpha) const {
-        PSFIntegrand I(alpha, _lam, this);
-        integ::IntRegion<double> reg(0.0, _D);
-        double val = integ::int1d(I, reg,
-                                  gsparams->integration_relerr,
-                                  gsparams->integration_abserr);
-        return val;
-    }
-
-    class SecondKickRadialFunction : public FluxDensity
-    {
-    public:
-        SecondKickRadialFunction() {}
-        double operator()(double r) const { return 0.; }
-    private:
-    };
-
-    boost::shared_ptr<PhotonArray> SBSecondKick::SBSecondKickImpl::shoot(int N, UniformDeviate ud) const
-    {
-        dbg<<"SecondKick::shoot: N = "<<N<<std::endl;
-        dbg<<"Target flux = 1.0"<<std::endl;
-
-        if (!_sampler) {
-            std::vector<double> range(2, 0.);
-            range[1] = 1.0; // No idea how accurate this is.
-            _radial.reset(new SecondKickRadialFunction());
-            _sampler.reset(new OneDimensionalDeviate(*_radial, range, true, gsparams));
-        }
-
-        assert(_sampler.get());
-        boost::shared_ptr<PhotonArray> result = _sampler->shoot(N,ud);
-        dbg<<"SecondKick Realized flux = "<<result->getTotalFlux()<<std::endl;
-        return result;
-    }
+    double SBSecondKick::SBSecondKickImpl::structureFunctionDirect(double rho) const
+    { return _info->structureFunctionDirect(rho); }
 }

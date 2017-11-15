@@ -20,6 +20,8 @@ This file implements the 'second-kick' profile used in the geometric approximati
 an atmospheric PSF.
 """
 
+import numpy as np
+
 import galsim
 
 from . import _galsim
@@ -27,27 +29,46 @@ from .gsobject import GSObject
 
 
 class SecondKick(GSObject):
-    def __init__(self, lam, r0, L0, diam, obscuration, kcrit, flux=1, scale=1./206265, gsparams=None):
-        self.lam = lam
-        self.r0 = r0
-        self.L0 = L0
-        self.diam = diam
-        self.obscuration = obscuration
-        self.kcrit = kcrit
-        self.scale = scale
+    def __init__(self, lam, r0, L0=np.inf, kcrit=0, flux=1, scale_unit=galsim.arcsec,
+                 do_delta=True, gsparams=None):
+        if L0 > 1e10:
+            L0 = 1e10
+        if isinstance(scale_unit, str):
+            scale_unit = galsim.angle.get_angle_unit(scale_unit)
+        self._scale_unit = scale_unit
+        scale = scale_unit/galsim.arcsec
+        self._sk = _galsim.SBSecondKick(lam, r0, L0, kcrit, flux, scale, do_delta, gsparams)
+        self._sbp = self._sk
 
-        GSObject.__init__(
-            self,
-            _galsim.SBSecondKick(
-                self.lam,
-                self.r0,
-                self.L0,
-                self.diam,
-                self.obscuration,
-                self.kcrit,
-                flux,
-                self.scale,
-                gsparams
-            )
-        )
-        self._gsparams = gsparams
+    @property
+    def lam(self):
+        return self._sk.getLam()
+
+    @property
+    def r0(self):
+        return self._sk.getR0()
+
+    @property
+    def L0(self):
+        return self._sk.getL0()
+
+    @property
+    def kcrit(self):
+        return self._sk.getKCrit()
+
+    @property
+    def scale_unit(self):
+        return self._scale_unit
+
+    @property
+    def do_delta(self):
+        return self._sk.getDoDelta()
+
+    def phasePower(self, kappa):
+        return self._sk.phasePower(kappa)
+
+    def structureFunction(self, rho):
+        return self._sk.structureFunction(rho)
+
+    def structureFunctionDirect(self, rho):
+        return self._sk.structureFunctionDirect(rho)

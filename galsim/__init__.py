@@ -124,6 +124,7 @@ from .shapelet import Shapelet
 from .inclinedexponential import InclinedExponential
 from .inclinedsersic import InclinedSersic
 from .vonkarman import VonKarman
+from .secondkick import SecondKick
 from .interpolatedimage import Interpolant
 from .interpolatedimage import Nearest, Linear, Cubic, Quintic, Lanczos, SincInterpolant, Delta
 from .interpolatedimage import InterpolatedImage, InterpolatedKImage, _InterpolatedKImage
