@@ -62,6 +62,7 @@ namespace galsim {
         double vKStructureFunction(double) const;
         double complementaryStructureFunction(double) const;
         double kValueNoTrunc(double) const;
+        void computeDeltaAmplitude();
 
         double _lam; // Wavelength in meters
         double _r0; // Fried parameter in meters

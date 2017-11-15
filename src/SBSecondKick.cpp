@@ -143,7 +143,9 @@ namespace galsim {
                                    const GSParamsPtr& gsparams) :
         _lam(lam), _r0(r0), _r0m53(fast_pow(r0, -5./3)), _L0(L0), _2piL02(4*M_PI*M_PI/L0/L0),
         _r0L0m53(fast_pow(r0/L0, -5./3)), _kcrit(kcrit), _doDelta(doDelta), _gsparams(gsparams)
-    { }
+    {
+        computeDeltaAmplitude();
+    }
 
     double SecondKickInfo::phasePower(double kappa) const {
         return magic5*_r0m53*fast_pow(kappa*kappa+_2piL02, -11./6);
@@ -186,6 +188,22 @@ namespace galsim {
 
     double SecondKickInfo::structureFunction(double rho) const {
         return vKStructureFunction(rho) - complementaryStructureFunction(rho);
+    }
+
+    class DeltaFunctionAmplitudeIntegrand : public std::unary_function<double,double>
+    {
+    public:
+        DeltaFunctionAmplitudeIntegrand(const SecondKickInfo& ski) : _ski(ski) {}
+        double operator()(double kappa) const { return _ski.phasePower(kappa)*kappa; }
+    private:
+        const SecondKickInfo& _ski;
+    };
+
+    void SecondKickInfo::computeDeltaAmplitude() {
+        DeltaFunctionAmplitudeIntegrand I(*this);
+        double integral = integ::int1d(
+            I, 0.0, _kcrit, _gsparams->integration_relerr, _gsparams->integration_abserr)/M_PI;
+        _deltaAmplitude = exp(-0.5*(magic4*_r0L0m53 - integral));
     }
 
     LRUCache<boost::tuple<double,double,double,double,bool,GSParamsPtr>,SecondKickInfo>

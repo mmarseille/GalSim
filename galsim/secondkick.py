@@ -64,6 +64,10 @@ class SecondKick(GSObject):
     def do_delta(self):
         return self._sk.getDoDelta()
 
+    @property
+    def delta_amplitude(self):
+        return self._sk.getDeltaAmplitude()
+
     def phasePower(self, kappa):
         return self._sk.phasePower(kappa)
 
