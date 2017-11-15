@@ -49,8 +49,8 @@ namespace galsim {
         double getDeltaAmplitude() const { return _deltaAmplitude; }
         double getHalfLightRadius() const { return _hlr; }
 
-        double kvalue(double) const;
-        double xvalue(double) const;
+        double kValue(double) const;
+        double xValue(double) const;
         double structureFunction(double) const;
         double structureFunctionDirect(double) const;
         double phasePower(double) const;
@@ -97,7 +97,7 @@ namespace galsim {
         bool isAxisymmetric() const { return true; }
         bool hasHardEdges() const { return false; }
         bool isAnalyticX() const { return false; }
-        bool isAnalyticK() const { return false; }
+        bool isAnalyticK() const { return true; }
 
         double maxK() const;
         double stepK() const;
@@ -126,10 +126,10 @@ namespace galsim {
         boost::shared_ptr<PhotonArray> shoot(int N, UniformDeviate ud) const
         { throw SBError("SBSecondKick::shoot() is not implemented"); }
 
-        double xValue(const Position<double>& p) const
-        { throw SBError("SBSecondKick::xValue() is not implemented"); }
-        std::complex<double> kValue(const Position<double>& p) const
-        { throw SBError("SBSecondKick::kValue() is not implemented"); }
+        double xValue(double) const;
+        double xValue(const Position<double>& p) const;
+        double kValue(double) const;
+        std::complex<double> kValue(const Position<double>& p) const;
 
         double phasePower(double kappa) const;
         double structureFunction(double rho) const;

@@ -111,6 +111,14 @@ namespace galsim {
     //
     //
 
+    const double VonKarmanInfo::magic1 = 2*boost::math::tgamma(11./6)/(pow(2, 5./6)*pow(M_PI, 8./3))
+                                    * pow(24/5.*boost::math::tgamma(6./5), 5./6);
+    const double VonKarmanInfo::magic2 = boost::math::tgamma(5./6)/pow(2., 1./6);
+    const double VonKarmanInfo::magic3 = VonKarmanInfo::magic1*boost::math::tgamma(-5./6)/pow(2., 11./6);
+    const double VonKarmanInfo::magic4 = boost::math::tgamma(11./6)*boost::math::tgamma(5./6)
+                                    / pow(M_PI,8./3)
+                                    * pow(24./5*boost::math::tgamma(6./5),5./6);
+
     class VKIkValueResid {
     public:
         VKIkValueResid(const VonKarmanInfo& vki, double mkt) : _vki(vki), _mkt(mkt) {}
@@ -123,14 +131,6 @@ namespace galsim {
         const double _mkt;
         const VonKarmanInfo& _vki;
     };
-
-    const double VonKarmanInfo::magic1 = 2*boost::math::tgamma(11./6)/(pow(2, 5./6)*pow(M_PI, 8./3))
-                                    * pow(24/5.*boost::math::tgamma(6./5), 5./6);
-    const double VonKarmanInfo::magic2 = boost::math::tgamma(5./6)/pow(2., 1./6);
-    const double VonKarmanInfo::magic3 = VonKarmanInfo::magic1*boost::math::tgamma(-5./6)/pow(2., 11./6);
-    const double VonKarmanInfo::magic4 = boost::math::tgamma(11./6)*boost::math::tgamma(5./6)
-                                    / pow(M_PI,8./3)
-                                    * pow(24./5*boost::math::tgamma(6./5),5./6);
 
     VonKarmanInfo::VonKarmanInfo(double lam, double r0, double L0, bool doDelta,
                                  const GSParamsPtr& gsparams) :

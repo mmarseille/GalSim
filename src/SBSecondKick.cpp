@@ -28,6 +28,7 @@
 #include "SBSecondKick.h"
 #include "SBSecondKickImpl.h"
 #include "fmath/fmath.hpp"
+#include "Solve.h"
 
 
 namespace galsim {
@@ -139,12 +140,68 @@ namespace galsim {
                                           * pow(2., 8./3)
                                           * pow(24./5*boost::math::tgamma(6./5),5./6);
 
+    class SKIkValueResid {
+    public:
+        SKIkValueResid(const SecondKickInfo& ski, double mkt) : _ski(ski), _mkt(mkt) {}
+        double operator()(double k) const {
+            double val = _ski.kValue(k)-_mkt;
+            xdbg<<"resid(k="<<k<<")="<<val<<'\n';
+            return val;
+         }
+    private:
+        const double _mkt;
+        const SecondKickInfo& _ski;
+    };
+
     SecondKickInfo::SecondKickInfo(double lam, double r0, double L0, double kcrit, bool doDelta,
                                    const GSParamsPtr& gsparams) :
         _lam(lam), _r0(r0), _r0m53(fast_pow(r0, -5./3)), _L0(L0), _2piL02(4*M_PI*M_PI/L0/L0),
         _r0L0m53(fast_pow(r0/L0, -5./3)), _kcrit(kcrit), _doDelta(doDelta), _gsparams(gsparams)
     {
         computeDeltaAmplitude();
+        // determine maxK
+        // want abs(kValue(k>maxK))/kValue(0.0) <= _gsparams->maxk_threshold;
+        // note that kValue(0.0) = 1.
+        // Harder this time compared to VonKarman, since kValue may oscillate back above 0.0...
+        double mkt = _gsparams->maxk_threshold;
+        if (_doDelta) {
+            if (mkt < _deltaAmplitude) {
+                // If the delta function amplitude is too large, then no matter how far out in k we
+                // go, kValue never drops below that amplitude.
+                // _maxk = std::numeric_limits<double>::infinity();
+                _maxk = MOCK_INF;
+            } else {
+                mkt = mkt*(1-_deltaAmplitude)+_deltaAmplitude;
+            }
+        }
+        // if (_maxk != std::numeric_limits<double>::infinity()) {
+        if (_maxk != MOCK_INF) {
+            SKIkValueResid skikvr(*this, mkt);
+            Solve<SKIkValueResid> solver(skikvr, 0.1, 1);
+            solver.bracket();
+            solver.setMethod(Brent);
+            _maxk = solver.root();
+        }
+        dbg<<"_maxk = "<<_maxk<<" arcsec^-1\n";
+        dbg<<"SB(maxk) = "<<kValue(_maxk)<<'\n';
+        dbg<<"_deltaAmplitude = "<<_deltaAmplitude<<'\n';
+        _stepk = 0.1;
+    }
+
+    double SecondKickInfo::kValueNoTrunc(double k) const {
+    // k in inverse arcsec
+        return fmath::expd(-0.5*structureFunction(_lam*k*ARCSEC2RAD/(2*M_PI)));
+    }
+
+    double SecondKickInfo::kValue(double k) const {
+    // k in inverse arcsec
+    // We're subtracting the asymptotic kValue limit here so that kValue->0 as k->inf.
+    // This means we should also rescale by (1-_deltaAmplitude) though, so we still retain
+    // kValue(0)=1.
+        double val = (kValueNoTrunc(k) - _deltaAmplitude)/(1-_deltaAmplitude);
+        if (std::abs(val) < std::numeric_limits<double>::epsilon())
+            return 0.0;
+        return val;
     }
 
     double SecondKickInfo::phasePower(double kappa) const {
@@ -204,6 +261,25 @@ namespace galsim {
         double integral = integ::int1d(
             I, 0.0, _kcrit, _gsparams->integration_relerr, _gsparams->integration_abserr)/M_PI;
         _deltaAmplitude = exp(-0.5*(magic4*_r0L0m53 - integral));
+    }
+
+    class SKIXIntegrand : public std::unary_function<double,double>
+    {
+    public:
+        SKIXIntegrand(double r, const SecondKickInfo& ski) : _r(r), _ski(ski) {}
+        double operator()(double k) const { return _ski.kValue(k)*j0(k*_r)*k; }
+    private:
+        const double _r;  //arcsec
+        const SecondKickInfo& _ski;
+    };
+
+    double SecondKickInfo::xValue(double r) const {
+    // r in arcsec
+        SKIXIntegrand I(r, *this);
+        integ::IntRegion<double> reg(0, integ::MOCK_INF);
+        return integ::int1d(I, reg,
+                            _gsparams->integration_relerr,
+                            _gsparams->integration_abserr)/(2.*M_PI);
     }
 
     LRUCache<boost::tuple<double,double,double,double,bool,GSParamsPtr>,SecondKickInfo>
@@ -268,4 +344,27 @@ namespace galsim {
 
     double SBSecondKick::SBSecondKickImpl::structureFunctionDirect(double rho) const
     { return _info->structureFunctionDirect(rho); }
+
+    double SBSecondKick::SBSecondKickImpl::kValue(double k) const
+    // this kValue assumes k is in inverse arcsec
+    {
+        return _info->kValue(k)*_flux;
+    }
+
+    std::complex<double> SBSecondKick::SBSecondKickImpl::kValue(const Position<double>& p) const
+    // k in units of _scale.
+    {
+        return kValue(sqrt(p.x*p.x+p.y*p.y)/_scale);
+    }
+
+    double SBSecondKick::SBSecondKickImpl::xValue(double r) const
+    {
+        return _info->xValue(r)*_flux;
+    }
+
+    double SBSecondKick::SBSecondKickImpl::xValue(const Position<double>& p) const
+    {
+        return xValue(sqrt(p.x*p.x+p.y*p.y)*_scale);
+    }
+
 }
