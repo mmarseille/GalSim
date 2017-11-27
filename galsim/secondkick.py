@@ -37,24 +37,33 @@ class SecondKick(GSObject):
             scale_unit = galsim.angle.get_angle_unit(scale_unit)
         self._scale_unit = scale_unit
         scale = scale_unit/galsim.arcsec
-        self._sk = _galsim.SBSecondKick(lam, r0, L0, kcrit, flux, scale, do_delta, gsparams)
-        self._sbp = self._sk
+        self._sbsk = _galsim.SBSecondKick(lam, r0, L0, kcrit, flux, scale, do_delta, gsparams)
+        self._delta_amplitude = self._sbsk.getDeltaAmplitude()
+        if do_delta:
+            self._sbdelta = _galsim.SBDeltaFunction(self._delta_amplitude, gsparams=gsparams)
+            # self._sbsk = _galsim.SBSecondKick(lam, r0, L0, kcrit, flux-self._delta_amplitude,
+            #                                   scale, False, gsparams)
+            self._sbsk = _galsim.SBSecondKick(lam, r0, L0, kcrit, flux-self._delta_amplitude,
+                                              scale, do_delta, gsparams)
+            self._sbp = _galsim.SBAdd([self._sbsk, self._sbdelta], gsparams=gsparams)
+        else:
+            self._sbp = self._sbsk
 
     @property
     def lam(self):
-        return self._sk.getLam()
+        return self._sbsk.getLam()
 
     @property
     def r0(self):
-        return self._sk.getR0()
+        return self._sbsk.getR0()
 
     @property
     def L0(self):
-        return self._sk.getL0()
+        return self._sbsk.getL0()
 
     @property
     def kcrit(self):
-        return self._sk.getKCrit()
+        return self._sbsk.getKCrit()
 
     @property
     def scale_unit(self):
@@ -62,17 +71,24 @@ class SecondKick(GSObject):
 
     @property
     def do_delta(self):
-        return self._sk.getDoDelta()
+        return self._sbsk.getDoDelta()
 
     @property
     def delta_amplitude(self):
-        return self._sk.getDeltaAmplitude()
+        return self._sbsk.getDeltaAmplitude()
 
     def phasePower(self, kappa):
-        return self._sk.phasePower(kappa)
+        return self._sbsk.phasePower(kappa)
 
     def structureFunction(self, rho):
-        return self._sk.structureFunction(rho)
+        return self._sbsk.structureFunction(rho)
 
     def structureFunctionDirect(self, rho):
-        return self._sk.structureFunctionDirect(rho)
+        return self._sbsk.structureFunctionDirect(rho)
+
+_galsim.SBSecondKick.__getinitargs__ = lambda self: (
+    self.getLam(), self.getR0(), self.getL0(), self.getKCrit(), self.getFlux(), self.getScale(),
+    self.getDoDelta(), self.getGSParams())
+_galsim.SBSecondKick.__getstate__ = lambda self: None
+_galsim.SBSecondKick.__repr__ = lambda self: \
+    "galsim._galsim.SBSecondKick(%r, %r, %r, %r, %r, %r, %r, %r)"%self.__getinitargs__()

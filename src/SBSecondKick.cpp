@@ -185,7 +185,7 @@ namespace galsim {
         dbg<<"_maxk = "<<_maxk<<" arcsec^-1\n";
         dbg<<"SB(maxk) = "<<kValue(_maxk)<<'\n';
         dbg<<"_deltaAmplitude = "<<_deltaAmplitude<<'\n';
-        _stepk = 0.1;
+        _stepk = 1.0;
     }
 
     double SecondKickInfo::kValueNoTrunc(double k) const {
