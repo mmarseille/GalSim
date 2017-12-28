@@ -106,8 +106,8 @@ def getBandpasses(AB_zeropoint=True, default_thin_trunc=True):
 
         # Use any arguments related to truncation, thinning, etc.
         if default_thin_trunc:
-            bp = bp.truncate(**tmp_truncate_dict)
-            bp = bp.thin(**tmp_thin_dict)
+            bp = bp.truncate()
+            bp = bp.thin()
 
         # Set the zeropoint if requested by the user:
         if AB_zeropoint:
