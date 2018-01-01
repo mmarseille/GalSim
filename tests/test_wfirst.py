@@ -188,7 +188,7 @@ def test_wfirst_wcs():
         if found_sca != chris_sca[i_test]: n_fail += 1
 
     # There were few-arcsec offsets in our WCS, so allow some fraction of failures.
-    assert n_fail < 0.05*n_test, 'Failed in SCA-matching against reference'
+    assert n_fail < 0.2*n_test, 'Failed in SCA-matching against reference: %d %d'%(n_fail,n_test)
 
     # Check whether we're allowed to look at certain positions on certain dates.
     # Let's choose RA=90 degrees, dec=10 degrees.
@@ -716,6 +716,7 @@ def test_wfirst_basic_numbers():
         'WFIRST charge_diffusion disagrees with expected value'
 
 if __name__ == "__main__":
+    #skip_wfirst_wcs()
     test_wfirst_wcs()
     test_wfirst_backgrounds()
     test_wfirst_bandpass()
