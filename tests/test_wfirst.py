@@ -463,16 +463,23 @@ def test_wfirst_psfs():
     # like a test of the chromatic functionality, but there are ways that getPSF() could mess up
     # inputs such that there is a disagreement.  That's why this unit test belongs here.
     use_sca = 5
-    use_lam = 900. # nm
+    zbp = galsim.wfirst.getBandpasses()['Z087']
+    use_lam = zbp.effective_wavelength # nm
     wfirst_psfs_chrom = galsim.wfirst.getPSF(SCAs=use_sca,
                                              approximate_struts=True)
     psf_chrom = wfirst_psfs_chrom[use_sca]
     wfirst_psfs_achrom = galsim.wfirst.getPSF(SCAs=use_sca,
                                               approximate_struts=True,
                                               wavelength=use_lam)
+    wfirst_psfs_achrom2 = galsim.wfirst.getPSF(SCAs=use_sca,
+                                              approximate_struts=True,
+                                              wavelength=zbp)
     psf_achrom = wfirst_psfs_achrom[use_sca]
+    psf_achrom2 = wfirst_psfs_achrom2[use_sca]
     # First, we can draw the achromatic PSF.
     im_achrom = psf_achrom.drawImage(scale=galsim.wfirst.pixel_scale)
+    im_achrom2 = im_achrom.copy()
+    im_achrom2 = psf_achrom2.drawImage(image=im_achrom2, scale=galsim.wfirst.pixel_scale)
     im_chrom = im_achrom.copy()
     obj_chrom = psf_chrom.evaluateAtWavelength(use_lam)
     im_chrom = obj_chrom.drawImage(image=im_chrom, scale=galsim.wfirst.pixel_scale)
@@ -482,6 +489,9 @@ def test_wfirst_psfs():
     np.testing.assert_array_almost_equal(
         im_chrom.array, im_achrom.array, decimal=8,
         err_msg='PSF at a given wavelength and chromatic one evaluated at that wavelength disagree.')
+    np.testing.assert_array_almost_equal(
+        im_achrom.array, im_achrom2.array, decimal=8,
+        err_msg='Two PSFs at a given wavelength specified in different ways disagree.')
 
     # Make a very limited check that interpolation works: just 2 wavelengths, 1 SCA.
     # use the blue and red limits for Y106:
