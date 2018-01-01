@@ -296,6 +296,8 @@ def storePSFImages(PSF_dict, filename, bandpass_list=None, clobber=False):
     if bandpass_list is None:
         bandpass_list = default_bandpass_list
     else:
+        if not hasattr(bandpass_list, '__iter__'):
+            bandpass_list = [bandpass_list]
         if not isinstance(bandpass_list[0], basestring):
             raise ValueError("Expected input list of bandpass names!")
         if not set(bandpass_list).issubset(default_bandpass_list):

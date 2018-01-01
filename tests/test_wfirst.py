@@ -549,6 +549,35 @@ def test_wfirst_psfs():
             img_stored.array, test_im.array, decimal=2,
             err_msg='PSF from stored file and actual PSF object disagree.')
 
+        # Make sure it won't overwrite when clobber is false, or accept bad
+        # input for the bandpass list or PSF dict.
+        try:
+            np.testing.assert_raises(ValueError, galsim.wfirst.storePSFImages,
+                                     bandpass_list=bp_list,
+                                     PSF_dict=wfirst_psfs_int,
+                                     filename=test_file)
+            np.testing.assert_raises(ValueError, galsim.wfirst.storePSFImages,
+                                     bandpass_list=3,
+                                     PSF_dict=wfirst_psfs_int,
+                                     filename='1_'+test_file)
+            np.testing.assert_raises(ValueError, galsim.wfirst.storePSFImages,
+                                     bandpass_list=full_bp_list.keys()+['fakebp'],
+                                     PSF_dict=wfirst_psfs_int,
+                                     filename='2_'+test_file)
+            np.testing.assert_raises(ValueError, galsim.wfirst.storePSFImages,
+                                     bandpass_list=bp_list,
+                                     PSF_dict={},
+                                     filename='3_'+test_file)
+        except ImportError:
+            print('The assert_raises tests require nose')
+        # And make sure it comments on this when clobber is true.
+        import warnings
+        with warnings.catch_warnings(record=True) as ww:
+            galsim.wfirst.storePSFImages(bandpass_list=bp_list, PSF_dict=wfirst_psfs_int,
+                                         filename=test_file, clobber=True)
+        expected_message = "Output file already exists, and will be clobbered."
+        np.testing.assert_equal(str(ww[0].message), expected_message)
+
         # Delete test files when done.
         os.remove(test_file)
 
