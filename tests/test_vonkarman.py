@@ -142,26 +142,28 @@ def test_vk_eq_kolm():
     vk_img = vk.drawImage(nx=24, ny=24, scale=0.2)
     np.testing.assert_allclose(kolm_img.array, vk_img.array, atol=flux*1e-5, rtol=0)
 
-# def time_test():
-#     import time
-#     t0 = time.time()
-#     vk = galsim.VonKarman(lam=700, r0=0.1, L0=24.3)
-#     vk.drawImage(nx=16, ny=16, scale=0.2)
-#     t1 = time.time()
-#     print("Time to create/draw first time: {:6.3f}s".format(t1-t0))
-#     for i in range(10):
-#         vk.drawImage(nx=16, ny=16, scale=0.2)
-#     t2 = time.time()
-#     print("Time to draw 10 more: {:6.3f}s".format(t2-t1))
-#     for i in range(10):
-#         vk.drawImage(nx=16, ny=16, scale=0.2, method='phot', n_photons=50000)
-#     t3 = time.time()
-#     print("Time to photon-shoot 10 more with 50000 photons: {:6.3f}s".format(t3-t2))
+
+def vk_benchmark():
+    import time
+    t0 = time.time()
+    vk = galsim.VonKarman(lam=700, r0=0.1, L0=24.3)
+    vk.drawImage(nx=16, ny=16, scale=0.2)
+    t1 = time.time()
+    print("Time to create/draw first time: {:6.3f}s".format(t1-t0))
+    for i in range(10):
+        vk.drawImage(nx=16, ny=16, scale=0.2)
+    t2 = time.time()
+    print("Time to draw 10 more: {:6.3f}s".format(t2-t1))
+    for i in range(100):
+        vk.drawImage(nx=16, ny=16, scale=0.2, method='phot', n_photons=50000)
+    t3 = time.time()
+    print("Time to photon-shoot 100 more with 50000 photons each: {:6.3f}s".format(t3-t2))
 
 if __name__ == "__main__":
     from argparse import ArgumentParser
     parser = ArgumentParser()
     parser.add_argument("--slow", action='store_true', help="Run slow tests")
+    parser.add_argument("--benchmark", action='store_true', help="Run timing benchmark")
     args = parser.parse_args()
 
     test_vk(args.slow)
@@ -169,4 +171,5 @@ if __name__ == "__main__":
     test_vk_scale()
     test_vk_ne()
     test_vk_eq_kolm()
-    # time_test()
+    if args.benchmark:
+        vk_benchmark()
