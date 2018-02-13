@@ -24,7 +24,7 @@ cp ${source_tarball} ~/rpmbuild/SOURCES/.
 
 # Going for rpmbuild
 echo "Building SRPM file"
-rpmbuild -bs --define '_prefix %{getenv:EUCLID_CUSTOM_PREFIX}' GalSim.spec
+rpmbuild -bs --define '_build_prefix %{getenv:EUCLID_CUSTOM_PREFIX}' GalSim.spec
 
 echo "Building RPM from specfile"
-rpmbuild --define '_prefix %{getenv:EUCLID_CUSTOM_PREFIX}' --rebuild ~/rpmbuild/SRPMS/GalSim-1.5.1-1.el7.centos.src.rpm
+rpmbuild --define '_build_prefix %{getenv:EUCLID_CUSTOM_PREFIX}' --rebuild ~/rpmbuild/SRPMS/GalSim-1.5.1-1.el7.centos.src.rpm
